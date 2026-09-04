@@ -231,6 +231,13 @@ else
 	dep_libwacom = declare_dependency()
 endif
 
+############ libevdev force feedback ############
+
+if cc.has_function('libevdev_upload_ff_effect',
+                  dependencies: dep_libevdev)
+	config_h.set('HAVE_LIBEVDEV_FF', 1)
+endif
+
 ############ udev bits ############
 
 executable('libinput-device-group',
