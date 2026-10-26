@@ -4365,8 +4365,7 @@ START_TEST(touchpad_multi_finger_drag_disabled_immediate)
 		break;
 	}
 
-	msleep(10);
-	litest_dispatch(li);
+	litest_timeout(li, 10);
 
 	switch (nfingers) {
 	case 3:
@@ -5923,9 +5922,6 @@ TEST_COLLECTION(touchpad_tap_drag)
 	litest_with_parameters(params, "fingers", 'i', 3, 1, 2, 3) {
 		litest_add_parametrized(touchpad_drag_disabled, LITEST_TOUCHPAD, LITEST_ANY, params);
 		litest_add_parametrized(touchpad_drag_disabled_immediate, LITEST_TOUCHPAD, LITEST_ANY, params);
-
-		litest_add_parametrized(touchpad_multi_finger_drag_disabled, LITEST_TOUCHPAD, LITEST_ANY, params);
-		litest_add_parametrized(touchpad_multi_finger_drag_disabled_immediate, LITEST_TOUCHPAD, LITEST_ANY, params);
 	}
 
 	litest_with_parameters(params, "fingers_1st", 'i', 3, 1, 2, 3,
@@ -5938,6 +5934,11 @@ TEST_COLLECTION(touchpad_tap_drag)
 	litest_add(touchpad_drag_config_invalid, LITEST_TOUCHPAD, LITEST_ANY);
 	litest_add(touchpad_drag_config_unsupported, LITEST_ANY, LITEST_TOUCHPAD);
 	litest_add(touchpad_drag_config_enabledisable, LITEST_TOUCHPAD, LITEST_ANY);
+
+	litest_with_parameters(params, "fingers", 'i', 3, 1, 2, 3) {
+		litest_add_parametrized(touchpad_multi_finger_drag_disabled, LITEST_TOUCHPAD, LITEST_ANY, params);
+		litest_add_parametrized(touchpad_multi_finger_drag_disabled_immediate, LITEST_TOUCHPAD, LITEST_ANY, params);
+	}
 	litest_add(touchpad_multi_finger_drag_config_invalid, LITEST_TOUCHPAD, LITEST_ANY);
 	litest_add(touchpad_multi_finger_drag_config_unsupported, LITEST_ANY, LITEST_TOUCHPAD);
 	litest_add(touchpad_multi_finger_drag_config_enabledisable, LITEST_TOUCHPAD, LITEST_ANY);
