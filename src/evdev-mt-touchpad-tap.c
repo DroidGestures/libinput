@@ -725,7 +725,7 @@ tp_tap_touch3_release2_handle_event(struct tp_dispatch *tp,
 			      tp->tap.saved_press_time,
 			      2,
 			      LIBINPUT_BUTTON_STATE_PRESSED);
-		if (tp->tap.drag_enabled) {
+		if (tp->tap.drag_enabled && tp->tap.multi_finger_drag_enabled) {
 			/* Resetting the timer to the appropriate delay
 			 * for a two-finger tap would be ideal, but the
 			 * timestamp of the last real finger release is lost,
