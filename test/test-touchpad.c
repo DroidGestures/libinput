@@ -7723,6 +7723,28 @@ START_TEST(touchpad_fuzz)
 }
 END_TEST
 
+START_TEST(touchpad_wobble_enables_hysteresis)
+{
+	struct litest_device *dev = litest_current_device();
+	struct libinput *li = dev->libinput;
+
+	/* No fuzz, so hysteresis starts off and only wobble detection
+	 * switches it on */
+	litest_touch_down(dev, 0, 50, 50);
+	litest_drain_events(li);
+
+	litest_touch_wobble(dev, 0, 50, 50);
+	litest_drain_events(li);
+
+	/* 3 units, inside the resolution/4 = 5 unit margin */
+	litest_touch_move(dev, 0, 50.2, 50);
+	litest_assert_empty_queue(li);
+
+	litest_touch_up(dev, 0);
+	litest_assert_empty_queue(li);
+}
+END_TEST
+
 TEST_COLLECTION(touchpad)
 {
 	/* clang-format off */
@@ -7880,6 +7902,7 @@ TEST_COLLECTION(touchpad)
 	litest_add_for_device(touchpad_end_start_touch, LITEST_WACOM_INTUOS5_FINGER);
 
 	litest_add(touchpad_fuzz, LITEST_TOUCHPAD, LITEST_ANY);
+	litest_add_for_device(touchpad_wobble_enables_hysteresis, LITEST_SYNAPTICS_RMI4);
 	/* clang-format on */
 }
 
