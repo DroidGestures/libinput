@@ -7330,7 +7330,7 @@ START_TEST(touchpad_speed_ignore_hovering_finger)
 	litest_touch_move_to_extended(dev, 2, 20, 20, 60, 80, axes, 20);
 	litest_drain_events(li);
 
-	/* second, third finger down withn same frame */
+	/* second, third finger down within the same frame */
 	litest_push_event_frame(dev);
 	litest_touch_down(dev, 0, 59, 70);
 	litest_touch_down(dev, 1, 65, 70);

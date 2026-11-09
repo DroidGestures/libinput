@@ -61,7 +61,7 @@ test_relative_event(struct litest_device *dev, double dx, double dy)
 
 	/* low-dpi devices scale up, not down, especially for slow motion.
 	 * so a 1 unit movement in a 200dpi mouse still sends a 1 pixel
-	 * movement. Work aorund this here by checking for the MOUSE_DPI
+	 * movement. Work around this here by checking for the MOUSE_DPI
 	 * property.
 	 */
 	_unref_(udev_device) *ud =
@@ -1043,7 +1043,7 @@ START_TEST(pointer_scroll_wheel_inhibit_dir_change)
 	litest_dispatch(li);
 	test_high_and_low_wheel_events_value(dev, REL_WHEEL_HI_RES, -120 - delta);
 
-	/* Scroll below the threshold in the oposite direction should be ignored */
+	/* Scroll below the threshold in the opposite direction should be ignored */
 	litest_event(dev, EV_REL, REL_WHEEL_HI_RES, -delta);
 	litest_event(dev, EV_SYN, SYN_REPORT, 0);
 	litest_dispatch(li);
