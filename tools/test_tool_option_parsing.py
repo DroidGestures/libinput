@@ -216,6 +216,7 @@ options = {
     ],
     # options with distinct values
     "enums": {
+        "set-click-lock-mode": ["disabled", "timeout"],
         "set-click-method": ["none", "clickfinger", "buttonareas"],
         "set-scroll-method": ["none", "twofinger", "edge", "button", "circular"],
         "set-profile": ["adaptive", "flat", "custom"],
@@ -281,6 +282,37 @@ def test_set_scroll_button(libinput_debug_tool):
     libinput_debug_tool.run_command_missing_arg(["--set-scroll-button"])
     libinput_debug_tool.run_command_success(["--set-scroll-button", "BTN_LEFT"])
     libinput_debug_tool.run_command_success(["--set-scroll-button=BTN_RIGHT"])
+
+
+def test_set_click_lock(libinput_debug_tool):
+    for option in ["mode", "timeout", "buttons", "threshold"]:
+        libinput_debug_tool.run_command_missing_arg([f"--set-click-lock-{option}"])
+    for mode in ["enabled", "none", "0"]:
+        libinput_debug_tool.run_command_invalid(["--set-click-lock-mode", mode])
+    libinput_debug_tool.run_command_success(["--set-click-lock-timeout", "1200"])
+    libinput_debug_tool.run_command_success(["--set-click-lock-timeout=10000"])
+    libinput_debug_tool.run_command_success(["--set-click-lock-timeout=0"])
+    for timeout in ["abc", "-1", "10001"]:
+        libinput_debug_tool.run_command_invalid(["--set-click-lock-timeout", timeout])
+    for buttons in [
+        "BTN_LEFT",
+        "BTN_LEFT,BTN_RIGHT",
+        "BTN_RIGHT,BTN_MIDDLE",
+        "BTN_SIDE,BTN_0,BTN_LEFT",
+        "BTN_LEFT,BTN_LEFT",
+        "none",
+    ]:
+        libinput_debug_tool.run_command_success(["--set-click-lock-buttons", buttons])
+    libinput_debug_tool.run_command_success(["--set-click-lock-buttons=BTN_EXTRA"])
+    for buttons in ["left", ",", "BTN_LEFT,none", "BTN_LEFT,side", "BTN_LEFT,BTN_FOO"]:
+        libinput_debug_tool.run_command_invalid(["--set-click-lock-buttons", buttons])
+    libinput_debug_tool.run_command_success(["--set-click-lock-threshold", "1.0"])
+    libinput_debug_tool.run_command_success(["--set-click-lock-threshold=0"])
+    libinput_debug_tool.run_command_success(["--set-click-lock-threshold=20"])
+    for threshold in ["-1", "20.5", "21", "nan"]:
+        libinput_debug_tool.run_command_invalid(
+            ["--set-click-lock-threshold", threshold]
+        )
 
 
 def test_set_custom_points(libinput_debug_tool):

@@ -182,6 +182,7 @@ print_device_options(struct libinput_device *dev)
 	_autofree_ char *clickm = NULL;
 	_autofree_ char *dwt = NULL;
 	_autofree_ char *dwtp = NULL;
+	_autofree_ char *clicklock = NULL;
 	_autofree_ char *pad = NULL;
 
 	if (libinput_device_config_tap_get_finger_count(dev)) {
@@ -228,6 +229,19 @@ print_device_options(struct libinput_device *dev)
 			      LIBINPUT_CONFIG_DWTP_ENABLED));
 	}
 
+	if (libinput_device_config_click_lock_get_modes(dev)) {
+		const char *mode = "off";
+
+		switch (libinput_device_config_click_lock_get_mode(dev)) {
+		case LIBINPUT_CONFIG_CLICK_LOCK_DISABLED:
+			break;
+		case LIBINPUT_CONFIG_CLICK_LOCK_TIMEOUT:
+			mode = "timeout";
+			break;
+		}
+		clicklock = strdup_printf(" click-lock-%s", mode);
+	}
+
 	if (libinput_device_has_capability(dev, LIBINPUT_DEVICE_CAP_TABLET_PAD)) {
 		pad = strdup_printf(
 			" buttons:%d strips:%d rings:%d mode groups:%d",
@@ -238,7 +252,7 @@ print_device_options(struct libinput_device *dev)
 	}
 
 	return strdup_printf(
-		"%s%s%s%s%s%s%s%s%s",
+		"%s%s%s%s%s%s%s%s%s%s",
 		tap ? tap : "",
 		libinput_device_config_left_handed_is_available(dev) ? " left" : "",
 		libinput_device_config_scroll_has_natural_scroll(dev) ? " scroll-nat"
@@ -248,6 +262,7 @@ print_device_options(struct libinput_device *dev)
 		clickm ? clickm : "",
 		dwt ? dwt : "",
 		dwtp ? dwtp : "",
+		clicklock ? clicklock : "",
 		pad ? pad : "");
 }
 

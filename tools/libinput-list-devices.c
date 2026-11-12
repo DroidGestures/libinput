@@ -214,6 +214,54 @@ scroll_button_lock_default(struct libinput_device *device)
 	return "n/a";
 }
 
+static const char *
+click_lock_mode_default(struct libinput_device *device)
+{
+	switch (libinput_device_config_click_lock_get_default_mode(device)) {
+	case LIBINPUT_CONFIG_CLICK_LOCK_DISABLED:
+		return "disabled";
+	case LIBINPUT_CONFIG_CLICK_LOCK_TIMEOUT:
+		return "timeout";
+	}
+
+	return "<invalid value>";
+}
+
+static char *
+click_lock_default(struct libinput_device *device)
+{
+	char *str;
+	uint32_t buttons[32];
+	_autostrvfree_ char **names = NULL;
+
+	if (!libinput_device_config_click_lock_get_modes(device)) {
+		xasprintf(&str, "n/a");
+		return str;
+	}
+
+	size_t nbuttons = libinput_device_config_click_lock_get_default_buttons(
+		device,
+		buttons,
+		ARRAY_LENGTH(buttons));
+	for (size_t i = 0; i < nbuttons; i++) {
+		const char *name = libevdev_event_code_get_name(EV_KEY, buttons[i]);
+
+		if (name)
+			names = strv_append_strdup(names, name);
+		else
+			names = strv_append_printf(names, "%#x", buttons[i]);
+	}
+	_autofree_ char *buttonstr = strv_join(names, " ");
+
+	xasprintf(&str,
+		  "%s, buttons: %s, %ums, %.1fmm",
+		  click_lock_mode_default(device),
+		  buttonstr ? buttonstr : "none",
+		  libinput_device_config_click_lock_get_default_timeout(device),
+		  libinput_device_config_click_lock_get_default_threshold(device));
+	return str;
+}
+
 static char *
 click_defaults(struct libinput_device *device)
 {
@@ -532,6 +580,10 @@ print_device_notify(struct libinput_event *ev)
 	free(str);
 
 	print_aligned("Clickfinger button map", "%s", clickfinger_button_map(dev));
+
+	str = click_lock_default(dev);
+	print_aligned("Click lock", "%s", str);
+	free(str);
 
 	print_aligned("Disable-w-typing", "%s", dwt_default(dev));
 	print_aligned("Disable-w-trackpointing", "%s", dwtp_default(dev));

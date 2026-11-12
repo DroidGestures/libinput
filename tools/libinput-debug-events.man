@@ -99,6 +99,19 @@ coordinates must be in the range [0.0, 1.0].
 Set the first 6 elements of a 3x3 matrix to use for calibration. The third row of the
 matrix is always "0.0 0.0 0.1".
 .TP 8
+.B \-\-set\-click\-lock\-buttons=[none|<button>[,<button>...]]
+Set the buttons that click lock can lock to the given comma-separated list
+of button codes, e.g. BTN_LEFT,BTN_RIGHT, or to none
+.TP 8
+.B \-\-set\-click\-lock\-mode=[disabled|timeout]
+Set the desired click lock mode
+.TP 8
+.B \-\-set\-click\-lock\-threshold=<mm>
+Set the click lock motion threshold in mm, 0 to 20
+.TP 8
+.B \-\-set\-click\-lock\-timeout=<ms>
+Set the click lock timeout in ms, 0 to 10000
+.TP 8
 .B \-\-set\-click\-method=[none|clickfinger|buttonareas]
 Set the desired click method
 .TP 8
