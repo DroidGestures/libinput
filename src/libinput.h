@@ -7121,6 +7121,423 @@ libinput_device_config_rotation_get_default_angle(struct libinput_device *device
 /**
  * @ingroup config
  *
+ * The click lock mode of a device defines when a button is locked, i.e.
+ * when it stays logically down after its physical release. Other modes
+ * may be added in the future.
+ *
+ * @since 1.33
+ */
+enum libinput_config_click_lock_mode {
+	/**
+	 * Never lock any button.
+	 */
+	LIBINPUT_CONFIG_CLICK_LOCK_DISABLED = 0,
+	/**
+	 * Lock a button if it is held for at least the click lock timeout
+	 * and the device does not move further than the click lock motion
+	 * threshold before it is released, see
+	 * libinput_device_config_click_lock_set_timeout() and
+	 * libinput_device_config_click_lock_set_threshold().
+	 *
+	 * Only buttons configured with
+	 * libinput_device_config_click_lock_set_buttons() can be locked.
+	 */
+	LIBINPUT_CONFIG_CLICK_LOCK_TIMEOUT = (1 << 0),
+};
+
+/**
+ * @ingroup config
+ *
+ * Check which click lock modes a device supports. Click lock is an
+ * accessibility feature for users who cannot keep a button pressed
+ * for the length of a drag: a locked button stays logically down after
+ * the physical release. The next button press on this device releases
+ * it; if that press is of the locked button, the press and its release
+ * are discarded. A touchpad and its trackpoint count as one device here,
+ * a button press on either releases a button locked on the other. The
+ * mode defines when a button is locked. See the libinput documentation
+ * for details.
+ *
+ * @param device The device to configure
+ *
+ * @return A bitmask of possible modes, or 0 if click lock is not
+ * available on this device.
+ *
+ * @see libinput_device_config_click_lock_set_mode
+ * @see libinput_device_config_click_lock_get_mode
+ * @see libinput_device_config_click_lock_get_default_mode
+ * @see libinput_device_config_click_lock_set_timeout
+ * @see libinput_device_config_click_lock_set_buttons
+ * @see libinput_device_config_click_lock_set_threshold
+ *
+ * @since 1.33
+ */
+uint32_t
+libinput_device_config_click_lock_get_modes(struct libinput_device *device);
+
+/**
+ * @ingroup config
+ *
+ * Set the click lock mode for this device. The mode defines when a button
+ * is locked.
+ *
+ * Setting @ref LIBINPUT_CONFIG_CLICK_LOCK_DISABLED releases a button that
+ * is currently locked immediately, i.e. a @ref
+ * LIBINPUT_EVENT_POINTER_BUTTON release event for that button is queued
+ * during this call. A button that is physically held but not yet locked
+ * does not lock when it is released.
+ *
+ * @param device The device to configure
+ * @param mode The click lock mode for this device.
+ *
+ * @return A config status code.
+ * @retval LIBINPUT_CONFIG_STATUS_SUCCESS On success
+ * @retval LIBINPUT_CONFIG_STATUS_UNSUPPORTED If the mode is not one of
+ * the modes returned by libinput_device_config_click_lock_get_modes().
+ * Setting @ref LIBINPUT_CONFIG_CLICK_LOCK_DISABLED always succeeds.
+ * @retval LIBINPUT_CONFIG_STATUS_INVALID If the mode is not a single
+ * valid mode
+ *
+ * @see libinput_device_config_click_lock_get_modes
+ * @see libinput_device_config_click_lock_get_mode
+ * @see libinput_device_config_click_lock_get_default_mode
+ *
+ * @since 1.33
+ */
+enum libinput_config_status
+libinput_device_config_click_lock_set_mode(struct libinput_device *device,
+					   enum libinput_config_click_lock_mode mode);
+
+/**
+ * @ingroup config
+ *
+ * Get the click lock mode for this device. The mode defines when a button
+ * is locked. If the device does not support click lock, this function
+ * always returns @ref LIBINPUT_CONFIG_CLICK_LOCK_DISABLED.
+ *
+ * @param device The device to configure
+ * @return The current click lock mode for this device.
+ *
+ * @see libinput_device_config_click_lock_get_modes
+ * @see libinput_device_config_click_lock_set_mode
+ * @see libinput_device_config_click_lock_get_default_mode
+ *
+ * @since 1.33
+ */
+enum libinput_config_click_lock_mode
+libinput_device_config_click_lock_get_mode(struct libinput_device *device);
+
+/**
+ * @ingroup config
+ *
+ * Get the default click lock mode for this device. The mode defines when
+ * a button is locked. If the device does not support click lock, this
+ * function always returns @ref LIBINPUT_CONFIG_CLICK_LOCK_DISABLED.
+ *
+ * @param device The device to configure
+ * @return The default click lock mode for this device.
+ *
+ * @see libinput_device_config_click_lock_get_modes
+ * @see libinput_device_config_click_lock_set_mode
+ * @see libinput_device_config_click_lock_get_mode
+ *
+ * @since 1.33
+ */
+enum libinput_config_click_lock_mode
+libinput_device_config_click_lock_get_default_mode(struct libinput_device *device);
+
+/**
+ * @ingroup config
+ *
+ * Set the click lock timeout in milliseconds for the @ref
+ * LIBINPUT_CONFIG_CLICK_LOCK_TIMEOUT mode. A button that is held for at
+ * least this long without the device moving past the motion threshold is
+ * locked when it is released.
+ *
+ * With a timeout of 0, a button that is released without having moved
+ * past the motion threshold is locked, however short the press. See
+ * libinput_device_config_click_lock_set_threshold().
+ *
+ * libinput implements an implementation-defined maximum timeout value,
+ * setting a timeout above it returns @ref LIBINPUT_CONFIG_STATUS_INVALID.
+ * Normal use-cases should never hit this limit. There is no minimum
+ * timeout, a caller that does not want very short timeouts needs to
+ * restrict the range itself.
+ *
+ * A change takes effect on the next button press.
+ *
+ * @note Setting the timeout does not change the click lock mode. To
+ * change the click lock mode call
+ * libinput_device_config_click_lock_set_mode().
+ *
+ * @param device The device to configure
+ * @param millis The timeout in milliseconds
+ *
+ * @return A config status code
+ * @retval LIBINPUT_CONFIG_STATUS_SUCCESS On success
+ * @retval LIBINPUT_CONFIG_STATUS_UNSUPPORTED If @ref
+ * LIBINPUT_CONFIG_CLICK_LOCK_TIMEOUT is not supported
+ * @retval LIBINPUT_CONFIG_STATUS_INVALID The timeout is above the maximum
+ *
+ * @see libinput_device_config_click_lock_get_modes
+ * @see libinput_device_config_click_lock_set_mode
+ * @see libinput_device_config_click_lock_get_timeout
+ * @see libinput_device_config_click_lock_get_default_timeout
+ *
+ * @since 1.33
+ */
+enum libinput_config_status
+libinput_device_config_click_lock_set_timeout(struct libinput_device *device,
+					      uint32_t millis);
+
+/**
+ * @ingroup config
+ *
+ * Get the current click lock timeout in milliseconds. If the device does
+ * not support @ref LIBINPUT_CONFIG_CLICK_LOCK_TIMEOUT, this function
+ * returns 0.
+ *
+ * @note The return value is independent of the currently selected click
+ * lock mode.
+ *
+ * @param device The device to configure
+ * @return The click lock timeout in milliseconds
+ *
+ * @see libinput_device_config_click_lock_get_modes
+ * @see libinput_device_config_click_lock_set_timeout
+ * @see libinput_device_config_click_lock_get_default_timeout
+ *
+ * @since 1.33
+ */
+uint32_t
+libinput_device_config_click_lock_get_timeout(struct libinput_device *device);
+
+/**
+ * @ingroup config
+ *
+ * Get the default click lock timeout in milliseconds. If the device does
+ * not support @ref LIBINPUT_CONFIG_CLICK_LOCK_TIMEOUT, this function
+ * returns 0.
+ *
+ * @param device The device to configure
+ * @return The default click lock timeout in milliseconds
+ *
+ * @see libinput_device_config_click_lock_get_modes
+ * @see libinput_device_config_click_lock_set_timeout
+ * @see libinput_device_config_click_lock_get_timeout
+ *
+ * @since 1.33
+ */
+uint32_t
+libinput_device_config_click_lock_get_default_timeout(struct libinput_device *device);
+
+/**
+ * @ingroup config
+ *
+ * Set the buttons that can be locked on this device in the @ref
+ * LIBINPUT_CONFIG_CLICK_LOCK_TIMEOUT mode. The buttons are evdev button
+ * codes as defined in linux/input-event-codes.h, e.g. BTN_LEFT,
+ * BTN_RIGHT, BTN_MIDDLE or BTN_SIDE. They are the button codes as
+ * reported in @ref LIBINPUT_EVENT_POINTER_BUTTON events, i.e. after
+ * left-handed mode is applied. A button that is not in the list is never
+ * locked, pressing it still releases a locked button.
+ *
+ * Calling this function replaces the previous list of buttons. A button
+ * that is given more than once is counted once. With nbuttons set to 0 no
+ * button is locked, buttons may be NULL then.
+ *
+ * It is not an error to give a button that the device does not have.
+ *
+ * If the button that is currently held or locked is not one of the new
+ * buttons, a held button does not lock when it is released and a locked
+ * button is released immediately.
+ *
+ * @note Setting the buttons does not change the click lock mode. To
+ * change the click lock mode call
+ * libinput_device_config_click_lock_set_mode().
+ *
+ * @param device The device to configure
+ * @param buttons An array of evdev button codes
+ * @param nbuttons The number of elements in buttons
+ *
+ * @return A config status code
+ * @retval LIBINPUT_CONFIG_STATUS_SUCCESS On success
+ * @retval LIBINPUT_CONFIG_STATUS_UNSUPPORTED If @ref
+ * LIBINPUT_CONFIG_CLICK_LOCK_TIMEOUT is not supported
+ * @retval LIBINPUT_CONFIG_STATUS_INVALID If one of the buttons is not a
+ * pointer button code, if more than 32 different buttons are given, or if
+ * buttons is NULL and nbuttons is not 0. The buttons set previously remain
+ * in effect.
+ *
+ * @see libinput_device_config_click_lock_get_modes
+ * @see libinput_device_config_click_lock_set_mode
+ * @see libinput_device_config_click_lock_get_buttons
+ * @see libinput_device_config_click_lock_get_default_buttons
+ *
+ * @since 1.33
+ */
+enum libinput_config_status
+libinput_device_config_click_lock_set_buttons(struct libinput_device *device,
+					      const uint32_t *buttons,
+					      size_t nbuttons);
+
+/**
+ * @ingroup config
+ *
+ * Get the buttons that can be locked on this device, see
+ * libinput_device_config_click_lock_set_buttons(). These are the buttons
+ * as they were set, including buttons that the device does not have.
+ *
+ * This function writes up to nbuttons evdev button codes into buttons and
+ * returns the number of buttons written.
+ *
+ * If the device does not support @ref LIBINPUT_CONFIG_CLICK_LOCK_TIMEOUT,
+ * this function returns 0 and buttons is not modified.
+ *
+ * @note The return value is independent of the currently selected click
+ * lock mode.
+ *
+ * @param device The device to configure
+ * @param buttons An array of at least nbuttons elements to be filled with
+ * evdev button codes
+ * @param nbuttons The number of elements in buttons
+ *
+ * @return The number of buttons written to buttons
+ *
+ * @see libinput_device_config_click_lock_get_modes
+ * @see libinput_device_config_click_lock_set_buttons
+ * @see libinput_device_config_click_lock_get_default_buttons
+ *
+ * @since 1.33
+ */
+size_t
+libinput_device_config_click_lock_get_buttons(struct libinput_device *device,
+					      uint32_t *buttons,
+					      size_t nbuttons);
+
+/**
+ * @ingroup config
+ *
+ * Get the buttons that can be locked on this device by default, see
+ * libinput_device_config_click_lock_set_buttons().
+ *
+ * This function writes up to nbuttons evdev button codes into buttons and
+ * returns the number of buttons written.
+ *
+ * If the device does not support @ref LIBINPUT_CONFIG_CLICK_LOCK_TIMEOUT,
+ * this function returns 0 and buttons is not modified.
+ *
+ * @param device The device to configure
+ * @param buttons An array of at least nbuttons elements to be filled with
+ * evdev button codes
+ * @param nbuttons The number of elements in buttons
+ *
+ * @return The number of buttons written to buttons
+ *
+ * @see libinput_device_config_click_lock_get_modes
+ * @see libinput_device_config_click_lock_set_buttons
+ * @see libinput_device_config_click_lock_get_buttons
+ *
+ * @since 1.33
+ */
+size_t
+libinput_device_config_click_lock_get_default_buttons(struct libinput_device *device,
+						      uint32_t *buttons,
+						      size_t nbuttons);
+
+/**
+ * @ingroup config
+ *
+ * Set the click lock motion threshold in mm for the @ref
+ * LIBINPUT_CONFIG_CLICK_LOCK_TIMEOUT mode. If the device moves further
+ * than this distance from where the button was pressed before the button
+ * is released, the button is not locked, the press is treated as a
+ * normal drag instead.
+ *
+ * With a threshold of 0, any motion of the device while the button is
+ * held means the button is not locked.
+ *
+ * The distance is a physical distance, based on the resolution of the
+ * device. For devices that do not provide their resolution, e.g. most
+ * mice, libinput assumes a resolution of 1000dpi.
+ *
+ * libinput implements an implementation-defined maximum threshold value,
+ * setting a threshold above it or below 0 returns @ref
+ * LIBINPUT_CONFIG_STATUS_INVALID. Normal use-cases should never hit this
+ * limit.
+ *
+ * A change takes effect with the next motion of the device, also for a
+ * button that is currently held.
+ *
+ * @note Setting the threshold does not change the click lock mode. To
+ * change the click lock mode call
+ * libinput_device_config_click_lock_set_mode().
+ *
+ * @param device The device to configure
+ * @param mm The threshold in mm
+ *
+ * @return A config status code
+ * @retval LIBINPUT_CONFIG_STATUS_SUCCESS On success
+ * @retval LIBINPUT_CONFIG_STATUS_UNSUPPORTED If @ref
+ * LIBINPUT_CONFIG_CLICK_LOCK_TIMEOUT is not supported
+ * @retval LIBINPUT_CONFIG_STATUS_INVALID The threshold is negative, not a
+ * finite number or above the maximum
+ *
+ * @see libinput_device_config_click_lock_get_modes
+ * @see libinput_device_config_click_lock_set_mode
+ * @see libinput_device_config_click_lock_get_threshold
+ * @see libinput_device_config_click_lock_get_default_threshold
+ *
+ * @since 1.33
+ */
+enum libinput_config_status
+libinput_device_config_click_lock_set_threshold(struct libinput_device *device,
+						double mm);
+
+/**
+ * @ingroup config
+ *
+ * Get the current click lock motion threshold in mm. If the device does
+ * not support @ref LIBINPUT_CONFIG_CLICK_LOCK_TIMEOUT, this function
+ * returns 0.
+ *
+ * @note The return value is independent of the currently selected click
+ * lock mode.
+ *
+ * @param device The device to configure
+ * @return The click lock threshold in mm
+ *
+ * @see libinput_device_config_click_lock_get_modes
+ * @see libinput_device_config_click_lock_set_threshold
+ * @see libinput_device_config_click_lock_get_default_threshold
+ *
+ * @since 1.33
+ */
+double
+libinput_device_config_click_lock_get_threshold(struct libinput_device *device);
+
+/**
+ * @ingroup config
+ *
+ * Get the default click lock motion threshold in mm. If the device does
+ * not support @ref LIBINPUT_CONFIG_CLICK_LOCK_TIMEOUT, this function
+ * returns 0.
+ *
+ * @param device The device to configure
+ * @return The default click lock threshold in mm
+ *
+ * @see libinput_device_config_click_lock_get_modes
+ * @see libinput_device_config_click_lock_set_threshold
+ * @see libinput_device_config_click_lock_get_threshold
+ *
+ * @since 1.33
+ */
+double
+libinput_device_config_click_lock_get_default_threshold(struct libinput_device *device);
+
+/**
+ * @ingroup config
+ *
  * Check if a tablet tool can have a custom pressure range.
  *
  * @param tool The libinput tool

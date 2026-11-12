@@ -81,6 +81,7 @@ ASSERT_INT_SIZE(enum libinput_config_middle_emulation_state);
 ASSERT_INT_SIZE(enum libinput_config_scroll_method);
 ASSERT_INT_SIZE(enum libinput_config_dwt_state);
 ASSERT_INT_SIZE(enum libinput_config_dwtp_state);
+ASSERT_INT_SIZE(enum libinput_config_click_lock_mode);
 
 static inline const char *
 event_type_to_str(enum libinput_event_type type)
@@ -5089,6 +5090,166 @@ libinput_device_config_rotation_get_default_angle(struct libinput_device *device
 		return 0;
 
 	return device->config.rotation->get_default_angle(device);
+}
+
+LIBINPUT_EXPORT uint32_t
+libinput_device_config_click_lock_get_modes(struct libinput_device *device)
+{
+	if (device->config.click_lock)
+		return device->config.click_lock->get_modes(device);
+
+	return 0;
+}
+
+LIBINPUT_EXPORT enum libinput_config_status
+libinput_device_config_click_lock_set_mode(struct libinput_device *device,
+					   enum libinput_config_click_lock_mode mode)
+{
+	/* Check mode is a single valid mode */
+	switch (mode) {
+	case LIBINPUT_CONFIG_CLICK_LOCK_DISABLED:
+	case LIBINPUT_CONFIG_CLICK_LOCK_TIMEOUT:
+		break;
+	default:
+		return LIBINPUT_CONFIG_STATUS_INVALID;
+	}
+
+	if ((libinput_device_config_click_lock_get_modes(device) & mode) != mode)
+		return LIBINPUT_CONFIG_STATUS_UNSUPPORTED;
+
+	if (device->config.click_lock)
+		return device->config.click_lock->set_mode(device, mode);
+
+	/* mode must be _DISABLED to get here */
+	return LIBINPUT_CONFIG_STATUS_SUCCESS;
+}
+
+LIBINPUT_EXPORT enum libinput_config_click_lock_mode
+libinput_device_config_click_lock_get_mode(struct libinput_device *device)
+{
+	if (device->config.click_lock)
+		return device->config.click_lock->get_mode(device);
+
+	return LIBINPUT_CONFIG_CLICK_LOCK_DISABLED;
+}
+
+LIBINPUT_EXPORT enum libinput_config_click_lock_mode
+libinput_device_config_click_lock_get_default_mode(struct libinput_device *device)
+{
+	if (device->config.click_lock)
+		return device->config.click_lock->get_default_mode(device);
+
+	return LIBINPUT_CONFIG_CLICK_LOCK_DISABLED;
+}
+
+LIBINPUT_EXPORT enum libinput_config_status
+libinput_device_config_click_lock_set_timeout(struct libinput_device *device,
+					      uint32_t millis)
+{
+	if ((libinput_device_config_click_lock_get_modes(device) &
+	     LIBINPUT_CONFIG_CLICK_LOCK_TIMEOUT) == 0)
+		return LIBINPUT_CONFIG_STATUS_UNSUPPORTED;
+
+	usec_t timeout = usec_from_millis(millis);
+	return device->config.click_lock->set_timeout(device, timeout);
+}
+
+LIBINPUT_EXPORT uint32_t
+libinput_device_config_click_lock_get_timeout(struct libinput_device *device)
+{
+	if ((libinput_device_config_click_lock_get_modes(device) &
+	     LIBINPUT_CONFIG_CLICK_LOCK_TIMEOUT) == 0)
+		return 0;
+
+	return usec_to_millis(device->config.click_lock->get_timeout(device));
+}
+
+LIBINPUT_EXPORT uint32_t
+libinput_device_config_click_lock_get_default_timeout(struct libinput_device *device)
+{
+	if ((libinput_device_config_click_lock_get_modes(device) &
+	     LIBINPUT_CONFIG_CLICK_LOCK_TIMEOUT) == 0)
+		return 0;
+
+	return usec_to_millis(device->config.click_lock->get_default_timeout(device));
+}
+
+LIBINPUT_EXPORT enum libinput_config_status
+libinput_device_config_click_lock_set_buttons(struct libinput_device *device,
+					      const uint32_t *buttons,
+					      size_t nbuttons)
+{
+	if ((libinput_device_config_click_lock_get_modes(device) &
+	     LIBINPUT_CONFIG_CLICK_LOCK_TIMEOUT) == 0)
+		return LIBINPUT_CONFIG_STATUS_UNSUPPORTED;
+
+	if (!buttons && nbuttons > 0)
+		return LIBINPUT_CONFIG_STATUS_INVALID;
+
+	return device->config.click_lock->set_buttons(device, buttons, nbuttons);
+}
+
+LIBINPUT_EXPORT size_t
+libinput_device_config_click_lock_get_buttons(struct libinput_device *device,
+					      uint32_t *buttons,
+					      size_t nbuttons)
+{
+	if ((libinput_device_config_click_lock_get_modes(device) &
+	     LIBINPUT_CONFIG_CLICK_LOCK_TIMEOUT) == 0)
+		return 0;
+
+	if (!buttons)
+		return 0;
+
+	return device->config.click_lock->get_buttons(device, buttons, nbuttons);
+}
+
+LIBINPUT_EXPORT size_t
+libinput_device_config_click_lock_get_default_buttons(struct libinput_device *device,
+						      uint32_t *buttons,
+						      size_t nbuttons)
+{
+	if ((libinput_device_config_click_lock_get_modes(device) &
+	     LIBINPUT_CONFIG_CLICK_LOCK_TIMEOUT) == 0)
+		return 0;
+
+	if (!buttons)
+		return 0;
+
+	return device->config.click_lock->get_default_buttons(device,
+							      buttons,
+							      nbuttons);
+}
+
+LIBINPUT_EXPORT enum libinput_config_status
+libinput_device_config_click_lock_set_threshold(struct libinput_device *device,
+						double mm)
+{
+	if ((libinput_device_config_click_lock_get_modes(device) &
+	     LIBINPUT_CONFIG_CLICK_LOCK_TIMEOUT) == 0)
+		return LIBINPUT_CONFIG_STATUS_UNSUPPORTED;
+
+	return device->config.click_lock->set_threshold(device, mm);
+}
+
+LIBINPUT_EXPORT double
+libinput_device_config_click_lock_get_threshold(struct libinput_device *device)
+{
+	if ((libinput_device_config_click_lock_get_modes(device) &
+	     LIBINPUT_CONFIG_CLICK_LOCK_TIMEOUT) == 0)
+		return 0.0;
+
+	return device->config.click_lock->get_threshold(device);
+}
+
+LIBINPUT_EXPORT double
+libinput_device_config_click_lock_get_default_threshold(struct libinput_device *device)
+{
+	if ((libinput_device_config_click_lock_get_modes(device) &
+	     LIBINPUT_CONFIG_CLICK_LOCK_TIMEOUT) == 0)
+		return 0.0;
+
+	return device->config.click_lock->get_default_threshold(device);
 }
 
 LIBINPUT_EXPORT int
