@@ -16,6 +16,13 @@ tapping up to whatever is supported by the hardware. libinput does not support
 four-finger taps or any tapping with more than four fingers, even though some
 hardware can distinguish between that many fingers.
 
+Tapping also produces :ref:`gestures_tap`, **in addition** to the button
+events configured. Callers that want to differentiate between regular
+button clicks and those triggered by tapping can use
+**libinput_event_pointer_get_button_is_tap()**.A possible use-case for
+differentiating between tapping and button clicks is to display a short visual
+feedback around the cursor when a tap-initiated button press is triggered.
+
 .. _tapping_default:
 
 ------------------------------------------------------------------------------

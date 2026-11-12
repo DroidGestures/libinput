@@ -598,8 +598,8 @@ START_TEST(device_disable_release_tap)
 
 	litest_timeout_tap(li);
 
-	litest_assert_button_event(li, BTN_LEFT, LIBINPUT_BUTTON_STATE_PRESSED);
-	litest_assert_button_event(li, BTN_LEFT, LIBINPUT_BUTTON_STATE_RELEASED);
+	litest_assert_tap_down(li, BTN_LEFT, 1);
+	litest_assert_tap_up(li, BTN_LEFT, 1);
 
 	litest_assert_empty_queue(li);
 
@@ -639,8 +639,8 @@ START_TEST(device_disable_release_tap_n_drag)
 	litest_dispatch(li);
 	litest_touch_up(dev, 0);
 
-	litest_assert_button_event(li, BTN_LEFT, LIBINPUT_BUTTON_STATE_PRESSED);
-	litest_assert_button_event(li, BTN_LEFT, LIBINPUT_BUTTON_STATE_RELEASED);
+	litest_assert_tap_down(li, BTN_LEFT, 1);
+	litest_assert_tap_up(li, BTN_LEFT, 1);
 
 	litest_assert_empty_queue(li);
 }

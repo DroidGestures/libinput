@@ -1053,6 +1053,23 @@ enum libinput_event_type {
 	LIBINPUT_EVENT_GESTURE_HOLD_END,
 
 	/**
+	 * A tap gesture signals a number of fingers put down and released in
+	 * the same position within a given timeout.
+	 *
+	 * Use libinput_event_gesture_get_finger_count() to get the number of
+	 * fingers for this tap.
+	 *
+	 * For historical reasons, taps for one, two and three fingers are
+	 * also sent as button events, see libinput_device_config_tap_set_button_map()
+	 *
+	 * See libinput_device_config_tap_set_enabled() for details.
+	 *
+	 * @since 1.33
+	 */
+	LIBINPUT_EVENT_GESTURE_TAP_BEGIN,
+	LIBINPUT_EVENT_GESTURE_TAP_END,
+
+	/**
 	 * @since 1.7
 	 */
 	LIBINPUT_EVENT_SWITCH_TOGGLE = 900,
@@ -2170,6 +2187,25 @@ libinput_event_gesture_get_scale(struct libinput_event_gesture *event);
  */
 double
 libinput_event_gesture_get_angle_delta(struct libinput_event_gesture *event);
+
+/**
+ * @ingroup event_gesture
+ *
+ * Return the button mapping for events of type @ref
+ * LIBINPUT_EVENT_GESTURE_TAP_BEGIN or @ref LIBINPUT_EVENT_GESTURE_TAP_END.
+ *
+ * For gesture events that are not of type @ref
+ * LIBINPUT_EVENT_GESTURE_TAP_BEGIN or @ref LIBINPUT_EVENT_GESTURE_TAP_END,
+ * this function returns 0.
+ *
+ * @note It is an application bug to call this function for events other than
+ * @ref LIBINPUT_EVENT_GESTURE_TAP_BEGIN or @ref
+ * LIBINPUT_EVENT_GESTURE_TAP_END.
+ *
+ * @return The button mapping for this tap gesture or zero
+ */
+uint32_t
+libinput_event_gesture_get_button(struct libinput_event_gesture *event);
 
 /**
  * @defgroup event_tablet Tablet events

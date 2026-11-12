@@ -905,6 +905,19 @@ gesture_notify_hold_end(struct libinput_device *device,
 			bool cancelled);
 
 void
+gesture_notify_tap_begin(struct libinput_device *device,
+			 usec_t time,
+			 int finger_count,
+			 uint32_t button);
+
+void
+gesture_notify_tap_end(struct libinput_device *device,
+		       usec_t time,
+		       int finger_count,
+		       uint32_t button,
+		       bool cancelled);
+
+void
 tablet_notify_axis(struct libinput_device *device,
 		   usec_t time,
 		   struct libinput_tablet_tool *tool,

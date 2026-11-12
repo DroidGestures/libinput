@@ -1170,6 +1170,11 @@ litest_is_button_event(struct libinput_event *event,
 		       unsigned int button,
 		       enum libinput_button_state state);
 
+struct libinput_event_gesture *
+litest_is_tap_event(struct libinput_event *event,
+		    unsigned int nfingers,
+		    enum libinput_event_type which);
+
 struct libinput_event_pointer *
 litest_is_axis_event(struct libinput_event *event,
 		     enum libinput_event_type axis_type,
@@ -1252,6 +1257,22 @@ _litest_assert_button_event(struct libinput *li,
 			    enum libinput_button_state state,
 			    const char *func,
 			    int line);
+
+#define litest_assert_tap_down(li_, button_, nfingers_) \
+	_litest_assert_tap(li_, button_, nfingers_, \
+			   LIBINPUT_BUTTON_STATE_PRESSED, __func__, __LINE__)
+
+#define litest_assert_tap_up(li_, button_, nfingers_) \
+	_litest_assert_tap(li_, button_, nfingers_, \
+			   LIBINPUT_BUTTON_STATE_RELEASED, __func__, __LINE__)
+
+void
+_litest_assert_tap(struct libinput *li,
+		   unsigned int button,
+		   unsigned int nfingers,
+		   enum libinput_button_state state,
+		   const char *func,
+		   int line);
 
 #define litest_assert_switch_event(li_, sw_, state_)  \
 	_litest_assert_switch_event(li_, sw_, state_, __func__, __LINE__)

@@ -139,10 +139,17 @@ tp_tap_notify(struct tp_dispatch *tp,
 
 	button = button_map[tp->tap.map][nfingers - 1];
 
-	if (state == LIBINPUT_BUTTON_STATE_PRESSED)
+	if (state == LIBINPUT_BUTTON_STATE_PRESSED) {
+		gesture_notify_tap_begin(&tp->device->base, time, nfingers, button);
 		tp->tap.buttons_pressed |= bit(nfingers);
-	else
+	} else {
+		gesture_notify_tap_end(&tp->device->base,
+				       time,
+				       nfingers,
+				       button,
+				       false);
 		tp->tap.buttons_pressed &= ~bit(nfingers);
+	}
 
 	evdev_pointer_notify_button(tp->device,
 				    time,

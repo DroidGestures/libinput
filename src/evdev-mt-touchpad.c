@@ -3890,8 +3890,8 @@ tp_init(struct tp_dispatch *tp, struct evdev_device *device)
 		tp->jump.detection_disabled = true;
 
 	device->seat_caps |= EVDEV_DEVICE_POINTER;
-	if (tp->gesture.enabled)
-		device->seat_caps |= EVDEV_DEVICE_GESTURE;
+	/* Tapping is a gesture now, so all touchpads have gestures */
+	device->seat_caps |= EVDEV_DEVICE_GESTURE;
 
 	return true;
 }

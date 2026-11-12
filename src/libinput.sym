@@ -393,4 +393,5 @@ LIBINPUT_1.31 {
 
 LIBINPUT_1.33 {
 	libinput_event_pointer_get_button_is_tap;
+	libinput_event_gesture_get_button;
 } LIBINPUT_1.31;
