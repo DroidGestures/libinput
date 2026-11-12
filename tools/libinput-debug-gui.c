@@ -1865,6 +1865,7 @@ handle_event_libinput(GIOChannel *source, GIOCondition condition, gpointer data)
 	tools_dispatch(li);
 
 	while ((ev = libinput_get_event(li))) {
+
 		switch (libinput_event_get_type(ev)) {
 		case LIBINPUT_EVENT_NONE:
 			abort();

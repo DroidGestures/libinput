@@ -1060,7 +1060,9 @@ enum libinput_event_type {
 	 * fingers for this tap.
 	 *
 	 * For historical reasons, taps for one, two and three fingers are
-	 * also sent as button events, see libinput_device_config_tap_set_button_map()
+	 * sent as button events, see libinput_device_config_tap_set_button_map()
+	 * This gesture is currently only sent for a four-finger tap but may
+	 * be sent for other taps in the future.
 	 *
 	 * See libinput_device_config_tap_set_enabled() for details.
 	 *
