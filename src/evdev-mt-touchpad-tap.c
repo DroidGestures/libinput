@@ -147,7 +147,8 @@ tp_tap_notify(struct tp_dispatch *tp,
 	evdev_pointer_notify_button(tp->device,
 				    time,
 				    evdev_usage_from_uint32_t(button),
-				    state);
+				    state,
+				    LIBINPUT_EVENT_POINTER_FLAGS_IS_TAP);
 }
 
 static void

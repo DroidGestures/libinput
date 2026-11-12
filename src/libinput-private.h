@@ -688,6 +688,11 @@ struct libinput_tablet_pad_mode_group {
 	void (*destroy)(struct libinput_tablet_pad_mode_group *group);
 };
 
+enum libinput_event_pointer_flags {
+	LIBINPUT_EVENT_POINTER_FLAGS_NONE,
+	LIBINPUT_EVENT_POINTER_FLAGS_IS_TAP = bit(1)
+};
+
 struct libinput_event {
 	enum libinput_event_type type;
 	struct libinput_device *device;

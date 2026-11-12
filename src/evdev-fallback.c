@@ -1250,7 +1250,8 @@ release_pressed_keys(struct fallback_dispatch *dispatch,
 			evdev_pointer_notify_button(device,
 						    time,
 						    usage,
-						    LIBINPUT_BUTTON_STATE_RELEASED);
+						    LIBINPUT_BUTTON_STATE_RELEASED,
+						    LIBINPUT_EVENT_POINTER_FLAGS_NONE);
 		}
 
 		count = get_key_down_count(device, usage);

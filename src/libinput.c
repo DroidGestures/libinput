@@ -193,6 +193,7 @@ struct libinput_event_pointer {
 	enum libinput_button_state state;
 	enum libinput_pointer_axis_source source;
 	uint32_t axes;
+	enum libinput_event_pointer_flags flags;
 };
 
 struct libinput_event_touch {
@@ -712,6 +713,17 @@ libinput_event_pointer_get_button_state(struct libinput_event_pointer *event)
 			   LIBINPUT_EVENT_POINTER_BUTTON);
 
 	return event->state;
+}
+
+LIBINPUT_EXPORT int
+libinput_event_pointer_get_button_is_tap(struct libinput_event_pointer *event)
+{
+	require_event_type(libinput_event_get_context(&event->base),
+			   event->base.type,
+			   0,
+			   LIBINPUT_EVENT_POINTER_BUTTON);
+
+	return !!(event->flags & LIBINPUT_EVENT_POINTER_FLAGS_IS_TAP);
 }
 
 LIBINPUT_EXPORT uint32_t

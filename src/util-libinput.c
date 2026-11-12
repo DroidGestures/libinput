@@ -384,13 +384,14 @@ print_pointer_button_event(struct libinput_event *ev,
 	buttonname = libevdev_event_code_get_name(EV_KEY, button);
 
 	state = libinput_event_pointer_get_button_state(p);
-	return strdup_printf("%s\t%s (%d) %s, seat count: %u",
+	return strdup_printf("%s\t%s (%d) %s, seat count: %u%s",
 			     time,
 			     buttonname ? buttonname : "???",
 			     button,
 			     state == LIBINPUT_BUTTON_STATE_PRESSED ? "pressed"
 								    : "released",
-			     libinput_event_pointer_get_seat_button_count(p));
+			     libinput_event_pointer_get_seat_button_count(p),
+			     libinput_event_pointer_get_button_is_tap(p) ? " tap" : "");
 }
 
 static char *
