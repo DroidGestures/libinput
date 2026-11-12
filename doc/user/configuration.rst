@@ -137,6 +137,16 @@ button emulation is usually enabled when the device does not provide a
 middle button.
 
 ------------------------------------------------------------------------------
+Click lock
+------------------------------------------------------------------------------
+
+Click lock keeps a button logically down after the physical release if it
+was held without moving for longer than a timeout, the next button press
+releases it. See :ref:`click_lock` for details on how this feature works.
+The click lock mode, the timeout, the buttons that can be locked and a
+motion threshold can be configured. Click lock is disabled by default.
+
+------------------------------------------------------------------------------
 Click method
 ------------------------------------------------------------------------------
 

@@ -146,6 +146,7 @@ src_rst = files(
 	'architecture.rst',
 	'building.rst',
 	'button-debouncing.rst',
+	'click-lock.rst',
 	'clickpad-softbuttons.rst',
 	'clickpad-with-right-button.rst',
 	'contributing.rst',

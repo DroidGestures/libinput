@@ -14,6 +14,7 @@ to be useful.
    :maxdepth: 1
 
    button-debouncing.rst
+   click-lock.rst
    clickpad-softbuttons.rst
    gestures.rst
    middle-button-emulation.rst
