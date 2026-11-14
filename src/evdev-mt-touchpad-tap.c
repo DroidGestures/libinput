@@ -458,7 +458,7 @@ tp_tap_touch2_release_handle_event(struct tp_dispatch *tp,
 			      tp->tap.saved_press_time,
 			      2,
 			      LIBINPUT_BUTTON_STATE_PRESSED);
-		if (tp->tap.drag_enabled && tp->tap.multi_finger_drag_enabled) {
+		if (tp->tap.drag_enabled && tp->tap.multi_finger_drag_enabled >= 2) {
 			tp->tap.state = TAP_STATE_2FGTAP_TAPPED;
 			tp_tap_set_drag_timer(tp, time, 2);
 		} else {
@@ -674,7 +674,7 @@ tp_tap_touch3_release2_handle_event(struct tp_dispatch *tp,
 			      tp->tap.saved_press_time,
 			      3,
 			      LIBINPUT_BUTTON_STATE_PRESSED);
-		if (tp->tap.drag_enabled && tp->tap.multi_finger_drag_enabled) {
+		if (tp->tap.drag_enabled && tp->tap.multi_finger_drag_enabled >= 3) {
 			tp->tap.state = TAP_STATE_3FGTAP_TAPPED;
 			tp_tap_set_drag_timer(tp, time, 3);
 		} else {
@@ -725,7 +725,7 @@ tp_tap_touch3_release2_handle_event(struct tp_dispatch *tp,
 			      tp->tap.saved_press_time,
 			      2,
 			      LIBINPUT_BUTTON_STATE_PRESSED);
-		if (tp->tap.drag_enabled && tp->tap.multi_finger_drag_enabled) {
+		if (tp->tap.drag_enabled && tp->tap.multi_finger_drag_enabled >= 2) {
 			/* Resetting the timer to the appropriate delay
 			 * for a two-finger tap would be ideal, but the
 			 * timestamp of the last real finger release is lost,
@@ -1550,7 +1550,7 @@ tp_tap_config_get_multi_finger_drag_enabled(struct libinput_device *device)
 static inline enum libinput_config_multi_finger_drag_state
 tp_multi_finger_drag_default(struct evdev_device *device)
 {
-	return LIBINPUT_CONFIG_MULTI_FINGER_DRAG_ENABLED;
+	return LIBINPUT_CONFIG_MULTI_FINGER_DRAG_SINGLE_TWO_THREE_FINGER;
 }
 
 static enum libinput_config_multi_finger_drag_state

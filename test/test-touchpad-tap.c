@@ -4173,7 +4173,7 @@ START_TEST(touchpad_multi_finger_drag_config_invalid)
 
 	litest_assert_enum_eq(libinput_device_config_tap_set_multi_finger_drag_enabled(
 				      dev->libinput_device,
-				      2),
+				      5),
 			      LIBINPUT_CONFIG_STATUS_INVALID);
 	litest_assert_enum_eq(libinput_device_config_tap_set_multi_finger_drag_enabled(
 				      dev->libinput_device,
@@ -4190,17 +4190,22 @@ START_TEST(touchpad_multi_finger_drag_config_unsupported)
 	litest_assert_enum_eq(
 		libinput_device_config_tap_get_default_multi_finger_drag_enabled(
 			dev->libinput_device),
-		LIBINPUT_CONFIG_MULTI_FINGER_DRAG_ENABLED);
+		LIBINPUT_CONFIG_MULTI_FINGER_DRAG_SINGLE_FINGER_ONLY);
 	litest_assert_enum_eq(libinput_device_config_tap_get_multi_finger_drag_enabled(
 				      dev->libinput_device),
-			      LIBINPUT_CONFIG_MULTI_FINGER_DRAG_DISABLED);
+			      LIBINPUT_CONFIG_MULTI_FINGER_DRAG_SINGLE_FINGER_ONLY);
 	status = libinput_device_config_tap_set_multi_finger_drag_enabled(
 		dev->libinput_device,
-		LIBINPUT_CONFIG_MULTI_FINGER_DRAG_ENABLED);
+		LIBINPUT_CONFIG_MULTI_FINGER_DRAG_SINGLE_AND_TWO_FINGER);
 	litest_assert_enum_eq(status, LIBINPUT_CONFIG_STATUS_UNSUPPORTED);
 	status = libinput_device_config_tap_set_multi_finger_drag_enabled(
 		dev->libinput_device,
-		LIBINPUT_CONFIG_MULTI_FINGER_DRAG_DISABLED);
+		LIBINPUT_CONFIG_MULTI_FINGER_DRAG_SINGLE_TWO_THREE_FINGER);
+	litest_assert_enum_eq(status, LIBINPUT_CONFIG_STATUS_UNSUPPORTED);
+
+	status = libinput_device_config_tap_set_multi_finger_drag_enabled(
+		dev->libinput_device,
+		LIBINPUT_CONFIG_MULTI_FINGER_DRAG_SINGLE_FINGER_ONLY);
 	litest_assert_enum_eq(status, LIBINPUT_CONFIG_STATUS_SUCCESS);
 }
 END_TEST
@@ -4217,12 +4222,22 @@ START_TEST(touchpad_multi_finger_drag_config_enabledisable)
 	litest_disable_multi_finger_tap_drag(dev->libinput_device);
 	state = libinput_device_config_tap_get_multi_finger_drag_enabled(
 		dev->libinput_device);
-	litest_assert_enum_eq(state, LIBINPUT_CONFIG_MULTI_FINGER_DRAG_DISABLED);
+	litest_assert_enum_eq(state,
+			      LIBINPUT_CONFIG_MULTI_FINGER_DRAG_SINGLE_FINGER_ONLY);
 
-	litest_enable_multi_finger_tap_drag(dev->libinput_device);
+	litest_enable_multi_finger_tap_drag_single_and_two_finger(dev->libinput_device);
 	state = libinput_device_config_tap_get_multi_finger_drag_enabled(
 		dev->libinput_device);
-	litest_assert_enum_eq(state, LIBINPUT_CONFIG_MULTI_FINGER_DRAG_ENABLED);
+	litest_assert_enum_eq(state,
+			      LIBINPUT_CONFIG_MULTI_FINGER_DRAG_SINGLE_AND_TWO_FINGER);
+
+	litest_enable_multi_finger_tap_drag_single_two_three_finger(
+		dev->libinput_device);
+	state = libinput_device_config_tap_get_multi_finger_drag_enabled(
+		dev->libinput_device);
+	litest_assert_enum_eq(
+		state,
+		LIBINPUT_CONFIG_MULTI_FINGER_DRAG_SINGLE_TWO_THREE_FINGER);
 
 	/* same thing with tapping disabled */
 	litest_enable_tap(dev->libinput_device);
@@ -4230,12 +4245,22 @@ START_TEST(touchpad_multi_finger_drag_config_enabledisable)
 	litest_disable_multi_finger_tap_drag(dev->libinput_device);
 	state = libinput_device_config_tap_get_multi_finger_drag_enabled(
 		dev->libinput_device);
-	litest_assert_enum_eq(state, LIBINPUT_CONFIG_MULTI_FINGER_DRAG_DISABLED);
+	litest_assert_enum_eq(state,
+			      LIBINPUT_CONFIG_MULTI_FINGER_DRAG_SINGLE_FINGER_ONLY);
 
-	litest_enable_multi_finger_tap_drag(dev->libinput_device);
+	litest_enable_multi_finger_tap_drag_single_and_two_finger(dev->libinput_device);
 	state = libinput_device_config_tap_get_multi_finger_drag_enabled(
 		dev->libinput_device);
-	litest_assert_enum_eq(state, LIBINPUT_CONFIG_MULTI_FINGER_DRAG_ENABLED);
+	litest_assert_enum_eq(state,
+			      LIBINPUT_CONFIG_MULTI_FINGER_DRAG_SINGLE_AND_TWO_FINGER);
+
+	litest_enable_multi_finger_tap_drag_single_two_three_finger(
+		dev->libinput_device);
+	state = libinput_device_config_tap_get_multi_finger_drag_enabled(
+		dev->libinput_device);
+	litest_assert_enum_eq(
+		state,
+		LIBINPUT_CONFIG_MULTI_FINGER_DRAG_SINGLE_TWO_THREE_FINGER);
 }
 END_TEST
 
