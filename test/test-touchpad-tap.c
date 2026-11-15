@@ -3609,6 +3609,50 @@ START_TEST(touchpad_5fg_tap_quickrelease)
 }
 END_TEST
 
+START_TEST(touchpad_circular_ring_scroll_with_tap_enabled)
+{
+	struct litest_device *dev = litest_current_device();
+	struct libinput *li = dev->libinput;
+	struct libinput_event *event;
+	int nevents = 0;
+
+	litest_enable_circular_scroll(dev);
+	litest_enable_tap(dev->libinput_device);
+	litest_drain_events(li);
+
+	/* A touch on the outer ring is owned by circular scrolling for
+	 * its whole lifetime. With tap-to-click enabled it must produce
+	 * scroll events only: no spurious button event on release (the
+	 * ring touch must not feed TAP_EVENT_RELEASE into the tap state
+	 * machine) and no crash from the tap nfingers_down bookkeeping
+	 * when the touch ends. */
+	litest_touch_down(dev, 0, 90, 50);
+	litest_touch_move_to(dev, 0, 90, 50, 50, 90, 10);
+	litest_touch_up(dev, 0);
+
+	/* Single pass: the litest queue assertions drain the queue, so
+	 * everything is checked in one loop. SCROLL_FINGER events carry
+	 * the value directly — get_axis_source() is only valid for the
+	 * legacy POINTER_AXIS type. */
+	litest_dispatch(li);
+	while ((event = libinput_get_event(li)) != NULL) {
+		enum libinput_event_type type = libinput_event_get_type(event);
+
+		if (type == LIBINPUT_EVENT_POINTER_AXIS)
+			litest_assert_enum_eq(
+				libinput_event_pointer_get_axis_source(
+					libinput_event_get_pointer_event(event)),
+				LIBINPUT_POINTER_AXIS_SOURCE_FINGER);
+		else
+			litest_assert_enum_eq(type,
+					      LIBINPUT_EVENT_POINTER_SCROLL_FINGER);
+		nevents++;
+		libinput_event_destroy(event);
+	}
+	litest_assert_int_gt(nevents, 0);
+}
+END_TEST
+
 START_TEST(clickpad_1fg_tap_click)
 {
 	struct litest_device *dev = litest_current_device();
@@ -5636,6 +5680,8 @@ TEST_COLLECTION(touchpad_tap)
 
 	litest_add(clickpad_1fg_tap_click, LITEST_CLICKPAD, LITEST_ANY);
 	litest_add(clickpad_2fg_tap_click, LITEST_CLICKPAD, LITEST_SINGLE_TOUCH|LITEST_APPLE_CLICKPAD);
+
+	litest_add(touchpad_circular_ring_scroll_with_tap_enabled, LITEST_CIRCULAR_TOUCHPAD, LITEST_ANY);
 	/* clang-format on */
 }
 

@@ -1238,6 +1238,19 @@ tp_tap_handle_state(struct tp_dispatch *tp, usec_t time)
 		if (tp->buttons.is_clickpad && tp->queued & TOUCHPAD_EVENT_BUTTON_PRESS)
 			t->tap.state = TAP_TOUCH_STATE_DEAD;
 
+		/* A touch that begins on the outer ring of a circular
+		 * touchpad belongs to circular scrolling for its whole
+		 * lifetime (the scroll code locks the zone on touch
+		 * begin). Exclude it from the tap state machine the same
+		 * way as thumbs: never counted in tap.nfingers_down and
+		 * never fed a release. Marking the touch DEAD only while
+		 * it is on the ring breaks the nfingers_down bookkeeping
+		 * because the circular scroll state is already reset by
+		 * the time the touch ends. */
+		if (t->state == TOUCH_BEGIN &&
+		    t->scroll.circular.state == CIRCULAR_SCROLL_TOUCH_STATE_RING)
+			t->tap.is_thumb = true;
+
 		/* If a touch was considered thumb for tapping once, we
 		 * ignore it for the rest of lifetime */
 		if (t->tap.is_thumb)
