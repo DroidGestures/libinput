@@ -1276,7 +1276,7 @@ fallback_return_to_neutral_state(struct fallback_dispatch *dispatch,
 	cancel_touches(dispatch, device, NULL, time);
 	release_pressed_keys(dispatch, device, time);
 	memset(dispatch->hw_key_mask, 0, sizeof(dispatch->hw_key_mask));
-	memset(dispatch->hw_key_mask, 0, sizeof(dispatch->last_hw_key_mask));
+	memset(dispatch->last_hw_key_mask, 0, sizeof(dispatch->last_hw_key_mask));
 }
 
 static void
