@@ -441,16 +441,10 @@ class TestYaml(unittest.TestCase):
                 self.assertTrue(isinstance(d, float))
 
             adelta = e["angle_delta"]
-            self.assertTrue(isinstance(adelta, list))
-            self.assertEqual(len(adelta), 2)
-            for d in adelta:
-                self.assertTrue(isinstance(d, float))
+            self.assertTrue(isinstance(adelta, float))
 
             scale = e["scale"]
-            self.assertTrue(isinstance(scale, list))
-            self.assertEqual(len(scale), 2)
-            for d in scale:
-                self.assertTrue(isinstance(d, float))
+            self.assertTrue(isinstance(scale, float))
 
     def test_events_libinput_gesture_swipe(self):
         keys = ["type", "time", "nfingers", "delta", "unaccel"]
