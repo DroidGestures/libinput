@@ -209,6 +209,7 @@ test_suites:
   - name: pointer
     suites:
       - pointer
+      - click_lock
   - name: lua
     suites:
       - lua

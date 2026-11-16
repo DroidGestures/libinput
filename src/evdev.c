@@ -178,7 +178,19 @@ evdev_pointer_notify_physical_button(struct evdev_device *device,
 	evdev_pointer_notify_button(device, time, button, state);
 }
 
+/* Commit left-handed and scroll method changes that were deferred
+ * because a button was down */
 static void
+evdev_pointer_commit_deferred_config(struct evdev_device *device)
+{
+	if (device->left_handed.change_to_enabled)
+		device->left_handed.change_to_enabled(device);
+
+	if (device->scroll.change_scroll_method)
+		device->scroll.change_scroll_method(device);
+}
+
+void
 evdev_pointer_post_button(struct evdev_device *device,
 			  usec_t time,
 			  evdev_usage_t button,
@@ -195,13 +207,8 @@ evdev_pointer_post_button(struct evdev_device *device,
 				      button_code_from_usage(button),
 				      state);
 
-		if (state == LIBINPUT_BUTTON_STATE_RELEASED) {
-			if (device->left_handed.change_to_enabled)
-				device->left_handed.change_to_enabled(device);
-
-			if (device->scroll.change_scroll_method)
-				device->scroll.change_scroll_method(device);
-		}
+		if (state == LIBINPUT_BUTTON_STATE_RELEASED)
+			evdev_pointer_commit_deferred_config(device);
 	}
 }
 
@@ -323,12 +330,25 @@ evdev_button_scroll_button(struct evdev_device *device, usec_t time, int is_pres
 	}
 }
 
-void
-evdev_pointer_notify_button(struct evdev_device *device,
-			    usec_t time,
-			    evdev_usage_t button,
-			    enum libinput_button_state state)
+static void
+evdev_pointer_notify_filtered_button(struct evdev_device *device,
+				     usec_t time,
+				     evdev_usage_t button,
+				     enum libinput_button_state state,
+				     enum evdev_click_lock_source source)
 {
+	/* Click lock first: the scroll button cannot lock but its press
+	 * still releases a lock */
+	if (evdev_click_lock_filter_button(device, time, button, state, source)) {
+		/* A swallowed release is the last physical release when it
+		 * belongs to the press that unlocked a button. This also
+		 * runs for the release that locks a button: the changes
+		 * check for a locked button themselves and keep waiting. */
+		if (state == LIBINPUT_BUTTON_STATE_RELEASED)
+			evdev_pointer_commit_deferred_config(device);
+		return;
+	}
+
 	if (device->scroll.method == LIBINPUT_CONFIG_SCROLL_ON_BUTTON_DOWN &&
 	    evdev_usage_cmp(button, device->scroll.button) == 0) {
 		evdev_button_scroll_button(device, time, state);
@@ -336,6 +356,19 @@ evdev_pointer_notify_button(struct evdev_device *device,
 	}
 
 	evdev_pointer_post_button(device, time, button, state);
+}
+
+void
+evdev_pointer_notify_button(struct evdev_device *device,
+			    usec_t time,
+			    evdev_usage_t button,
+			    enum libinput_button_state state)
+{
+	evdev_pointer_notify_filtered_button(device,
+					     time,
+					     button,
+					     state,
+					     CLICK_LOCK_SOURCE_BUTTON);
 }
 
 void
