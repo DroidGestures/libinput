@@ -118,13 +118,9 @@ log_tap_bug(struct tp_dispatch *tp, struct tp_touch *t, enum tap_event event)
 			       tap_state_to_str(tp->tap.state));
 }
 
-static void
-tp_tap_notify(struct tp_dispatch *tp,
-	      usec_t time,
-	      int nfingers,
-	      enum libinput_button_state state)
+static uint32_t
+tp_tap_button(struct tp_dispatch *tp, int nfingers)
 {
-	int32_t button;
 	uint32_t button_map[2][3] = {
 		{ EVDEV_BTN_LEFT, EVDEV_BTN_RIGHT, EVDEV_BTN_MIDDLE },
 		{ EVDEV_BTN_LEFT, EVDEV_BTN_MIDDLE, EVDEV_BTN_RIGHT },
@@ -132,22 +128,33 @@ tp_tap_notify(struct tp_dispatch *tp,
 
 	assert(tp->tap.map < ARRAY_LENGTH(button_map));
 
+	return button_map[tp->tap.map][nfingers - 1];
+}
+
+static void
+tp_tap_notify(struct tp_dispatch *tp,
+	      usec_t time,
+	      int nfingers,
+	      enum libinput_button_state state)
+{
+	int32_t button;
+
 	if (nfingers < 1 || nfingers > 3)
 		return;
 
 	tp_gesture_cancel(tp, time);
 
-	button = button_map[tp->tap.map][nfingers - 1];
+	button = tp_tap_button(tp, nfingers);
 
 	if (state == LIBINPUT_BUTTON_STATE_PRESSED)
 		tp->tap.buttons_pressed |= bit(nfingers);
 	else
 		tp->tap.buttons_pressed &= ~bit(nfingers);
 
-	evdev_pointer_notify_button(tp->device,
-				    time,
-				    evdev_usage_from_uint32_t(button),
-				    state);
+	evdev_pointer_notify_gesture_button(tp->device,
+					    time,
+					    evdev_usage_from_uint32_t(button),
+					    state);
 }
 
 static void
@@ -1645,6 +1652,21 @@ tp_release_all_taps(struct tp_dispatch *tp, usec_t now)
 
 	tp->tap.state = TAP_STATE_IDLE;
 	tp->tap.nfingers_down = 0;
+}
+
+/* If tapping holds the given button, e.g. during tap-and-drag or drag
+ * lock, release it */
+void
+tp_tap_release_button(struct tp_dispatch *tp, usec_t time, evdev_usage_t button)
+{
+	for (int i = 1; i <= 3; i++) {
+		if ((tp->tap.buttons_pressed & bit(i)) &&
+		    evdev_usage_eq(button, tp_tap_button(tp, i))) {
+			tp_tap_clear_timer(tp);
+			tp_release_all_taps(tp, time);
+			return;
+		}
+	}
 }
 
 void

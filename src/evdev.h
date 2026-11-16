@@ -319,6 +319,11 @@ struct evdev_device {
 		enum evdev_click_lock_source source;
 		usec_t deadline;          /* press time + timeout */
 		struct phys_coords moved; /* since the press */
+		/* Releases a button held by a drag or drag lock, set by
+		 * touchpads */
+		void (*release_drags)(struct evdev_device *device,
+				      usec_t time,
+				      evdev_usage_t button);
 	} click_lock;
 };
 
@@ -601,6 +606,11 @@ evdev_pointer_notify_physical_button(struct evdev_device *device,
 				     evdev_usage_t button,
 				     enum libinput_button_state state);
 void
+evdev_pointer_notify_gesture_button(struct evdev_device *device,
+				    usec_t time,
+				    evdev_usage_t button,
+				    enum libinput_button_state state);
+void
 evdev_pointer_post_button(struct evdev_device *device,
 			  usec_t time,
 			  evdev_usage_t button,
@@ -695,6 +705,9 @@ evdev_click_lock_handle_motion(struct evdev_device *device,
 
 void
 evdev_click_lock_release(struct evdev_device *device, usec_t time);
+
+void
+evdev_click_lock_cancel_hold(struct evdev_device *device);
 
 void
 evdev_click_lock_forget_buttons(struct evdev_device *device);

@@ -371,6 +371,21 @@ evdev_pointer_notify_button(struct evdev_device *device,
 					     CLICK_LOCK_SOURCE_BUTTON);
 }
 
+/* For buttons generated from touches, i.e. tapping and three-finger drag.
+ * Those have their own drag lock and never start a click lock hold. */
+void
+evdev_pointer_notify_gesture_button(struct evdev_device *device,
+				    usec_t time,
+				    evdev_usage_t button,
+				    enum libinput_button_state state)
+{
+	evdev_pointer_notify_filtered_button(device,
+					     time,
+					     button,
+					     state,
+					     CLICK_LOCK_SOURCE_GESTURE);
+}
+
 void
 evdev_device_led_update(struct evdev_device *device, enum libinput_led leds)
 {

@@ -1635,6 +1635,564 @@ START_TEST(click_lock_middleemu_overlapping_unlock)
 }
 END_TEST
 
+static void
+clickpad_click(struct litest_device *dev, bool is_press)
+{
+	litest_event(dev, EV_KEY, BTN_LEFT, is_press);
+	litest_event(dev, EV_SYN, SYN_REPORT, 0);
+	litest_dispatch(dev->libinput);
+}
+
+/* A click with a finger at x/y, held past the timeout if hold is true */
+static void
+clickpad_click_at(struct litest_device *dev, double x, double y, bool hold)
+{
+	litest_touch_down(dev, 0, x, y);
+	clickpad_click(dev, true);
+	if (hold)
+		litest_timeout_click_lock(dev->libinput);
+	clickpad_click(dev, false);
+	litest_touch_up(dev, 0);
+}
+
+START_TEST(click_lock_clickpad_locks)
+{
+	struct litest_device *dev = litest_current_device();
+	struct libinput *li = dev->libinput;
+
+	litest_enable_buttonareas(dev);
+	click_lock_setup(dev, BTN_LEFT);
+
+	litest_touch_down(dev, 0, 50, 50);
+	clickpad_click(dev, true);
+	litest_timeout_click_lock(li);
+	clickpad_click(dev, false);
+	litest_touch_up(dev, 0);
+	assert_locked(li, BTN_LEFT);
+
+	litest_touch_down(dev, 0, 50, 50);
+	clickpad_click(dev, true);
+	clickpad_click(dev, false);
+	litest_touch_up(dev, 0);
+	assert_released(li, BTN_LEFT);
+}
+END_TEST
+
+START_TEST(click_lock_clickpad_softbutton_locks)
+{
+	struct litest_device *dev = litest_current_device();
+	struct libinput *li = dev->libinput;
+
+	litest_enable_buttonareas(dev);
+	click_lock_setup(dev, BTN_RIGHT);
+
+	/* The right software button, on a device without BTN_RIGHT */
+	litest_touch_down(dev, 0, 90, 90);
+	clickpad_click(dev, true);
+	litest_timeout_click_lock(li);
+	clickpad_click(dev, false);
+	litest_touch_up(dev, 0);
+	assert_locked(li, BTN_RIGHT);
+
+	litest_touch_down(dev, 0, 90, 90);
+	clickpad_click(dev, true);
+	clickpad_click(dev, false);
+	litest_touch_up(dev, 0);
+	assert_released(li, BTN_RIGHT);
+
+	litest_touch_down(dev, 0, 50, 50);
+	clickpad_click(dev, true);
+	litest_timeout_click_lock(li);
+	clickpad_click(dev, false);
+	litest_touch_up(dev, 0);
+	assert_click(li, BTN_LEFT);
+}
+END_TEST
+
+START_TEST(click_lock_clickpad_left_handed)
+{
+	struct litest_device *dev = litest_current_device();
+	struct libinput *li = dev->libinput;
+	enum libinput_config_status status;
+
+	litest_enable_buttonareas(dev);
+	status = libinput_device_config_left_handed_set(dev->libinput_device, 1);
+	litest_assert_enum_eq(status, LIBINPUT_CONFIG_STATUS_SUCCESS);
+	click_lock_setup(dev, BTN_LEFT);
+
+	/* The buttons are those of the button events. Left-handed swaps the
+	 * software buttons but not the main area: the right software button
+	 * and the main area are both the left button and lock */
+	clickpad_click_at(dev, 90, 90, true);
+	assert_locked(li, BTN_LEFT);
+	clickpad_click_at(dev, 90, 90, false);
+	assert_released(li, BTN_LEFT);
+
+	clickpad_click_at(dev, 50, 50, true);
+	assert_locked(li, BTN_LEFT);
+	clickpad_click_at(dev, 50, 50, false);
+	assert_released(li, BTN_LEFT);
+
+	/* The left software button is the right button and does not */
+	clickpad_click_at(dev, 10, 90, true);
+	assert_click(li, BTN_RIGHT);
+}
+END_TEST
+
+START_TEST(click_lock_clickpad_move_cancels)
+{
+	struct litest_device *dev = litest_current_device();
+	struct libinput *li = dev->libinput;
+
+	litest_enable_buttonareas(dev);
+	click_lock_setup(dev, BTN_LEFT);
+
+	litest_touch_down(dev, 0, 50, 50);
+	clickpad_click(dev, true);
+	litest_touch_move_to(dev, 0, 50, 50, 70, 50, 10);
+	litest_timeout_click_lock(li);
+	clickpad_click(dev, false);
+	litest_touch_up(dev, 0);
+
+	litest_assert_button_event(li, BTN_LEFT, LIBINPUT_BUTTON_STATE_PRESSED);
+	litest_drain_events_of_type(li, LIBINPUT_EVENT_POINTER_MOTION);
+	assert_released(li, BTN_LEFT);
+}
+END_TEST
+
+START_TEST(click_lock_touchpad_buttons_lock)
+{
+	struct litest_device *dev = litest_current_device();
+	struct libinput *li = dev->libinput;
+
+	click_lock_setup(dev, BTN_LEFT, BTN_RIGHT);
+
+	hold(dev, BTN_RIGHT);
+	assert_locked(li, BTN_RIGHT);
+	click(dev, BTN_RIGHT);
+	assert_released(li, BTN_RIGHT);
+
+	hold(dev, BTN_LEFT);
+	assert_locked(li, BTN_LEFT);
+	click(dev, BTN_RIGHT);
+	litest_assert_button_event(li, BTN_LEFT, LIBINPUT_BUTTON_STATE_RELEASED);
+	assert_click(li, BTN_RIGHT);
+}
+END_TEST
+
+START_TEST(click_lock_touchpad_sendevents_releases)
+{
+	struct litest_device *dev = litest_current_device();
+	struct libinput *li = dev->libinput;
+	enum libinput_config_status status;
+
+	litest_enable_buttonareas(dev);
+	click_lock_setup(dev, BTN_LEFT);
+
+	litest_touch_down(dev, 0, 50, 50);
+	clickpad_click(dev, true);
+	litest_timeout_click_lock(li);
+	clickpad_click(dev, false);
+	litest_touch_up(dev, 0);
+	assert_locked(li, BTN_LEFT);
+
+	status = libinput_device_config_send_events_set_mode(
+		dev->libinput_device,
+		LIBINPUT_CONFIG_SEND_EVENTS_DISABLED);
+	litest_assert_enum_eq(status, LIBINPUT_CONFIG_STATUS_SUCCESS);
+	assert_released(li, BTN_LEFT);
+
+	status = libinput_device_config_send_events_set_mode(
+		dev->libinput_device,
+		LIBINPUT_CONFIG_SEND_EVENTS_ENABLED);
+	litest_assert_enum_eq(status, LIBINPUT_CONFIG_STATUS_SUCCESS);
+	litest_assert_empty_queue(li);
+}
+END_TEST
+
+/* A finger with some motion history, then the button held past the
+ * timeout */
+static void
+touchpad_hold_with_finger(struct litest_device *dev)
+{
+	struct libinput *li = dev->libinput;
+
+	litest_disable_tap(dev->libinput_device);
+	litest_disable_hold_gestures(dev->libinput_device);
+	click_lock_setup(dev, BTN_LEFT);
+
+	litest_touch_down(dev, 0, 50, 50);
+	litest_touch_move_to(dev, 0, 50, 50, 51, 50, 10);
+	litest_drain_events(li);
+	litest_button_click_debounced(dev, li, BTN_LEFT, true);
+	litest_assert_button_event(li, BTN_LEFT, LIBINPUT_BUTTON_STATE_PRESSED);
+	litest_timeout_click_lock(li);
+}
+
+START_TEST(click_lock_touchpad_motion_in_release_frame)
+{
+	struct litest_device *dev = litest_current_device();
+	struct libinput *li = dev->libinput;
+
+	touchpad_hold_with_finger(dev);
+
+	/* Buttons are posted before motion but the motion still counts */
+	litest_push_event_frame(dev);
+	litest_touch_move(dev, 0, 55, 50);
+	litest_button_click(dev, BTN_LEFT, false);
+	litest_pop_event_frame(dev);
+	litest_dispatch(li);
+	litest_assert_button_event(li, BTN_LEFT, LIBINPUT_BUTTON_STATE_RELEASED);
+	litest_touch_up(dev, 0);
+	litest_drain_events_of_type(li, LIBINPUT_EVENT_POINTER_MOTION);
+	litest_assert_empty_queue(li);
+}
+END_TEST
+
+START_TEST(click_lock_touchpad_motion_before_release_frame)
+{
+	struct litest_device *dev = litest_current_device();
+	struct libinput *li = dev->libinput;
+
+	touchpad_hold_with_finger(dev);
+
+	litest_touch_move(dev, 0, 55, 50);
+	litest_dispatch(li);
+	litest_button_click(dev, BTN_LEFT, false);
+	litest_dispatch(li);
+	litest_drain_events_of_type(li, LIBINPUT_EVENT_POINTER_MOTION);
+	assert_released(li, BTN_LEFT);
+	litest_touch_up(dev, 0);
+}
+END_TEST
+
+START_TEST(click_lock_touchpad_tap_and_drag_not_locked)
+{
+	struct litest_device *dev = litest_current_device();
+	struct libinput *li = dev->libinput;
+
+	litest_enable_tap(dev->libinput_device);
+	litest_disable_drag_lock(dev->libinput_device);
+	litest_disable_hold_gestures(dev->libinput_device);
+	click_lock_setup(dev, BTN_LEFT);
+
+	/* Tap and hold still past the click lock timeout: the tap button
+	 * never starts a hold, tapping has its own drag lock */
+	litest_touch_down(dev, 0, 50, 50);
+	litest_touch_up(dev, 0);
+	litest_touch_down(dev, 0, 50, 50);
+	litest_timeout_click_lock(li);
+	litest_timeout_tapndrag(li);
+	litest_touch_up(dev, 0);
+	litest_dispatch(li);
+	assert_click(li, BTN_LEFT);
+}
+END_TEST
+
+START_TEST(click_lock_touchpad_tap_unlocks)
+{
+	struct litest_device *dev = litest_current_device();
+	struct libinput *li = dev->libinput;
+
+	litest_enable_buttonareas(dev);
+	litest_enable_tap(dev->libinput_device);
+	litest_disable_hold_gestures(dev->libinput_device);
+	click_lock_setup(dev, BTN_LEFT);
+
+	litest_touch_down(dev, 0, 50, 50);
+	clickpad_click(dev, true);
+	litest_timeout_click_lock(li);
+	clickpad_click(dev, false);
+	litest_touch_up(dev, 0);
+	litest_timeout_tap(li);
+	assert_locked(li, BTN_LEFT);
+
+	/* A tap releases the lock and is not a click of its own */
+	litest_touch_down(dev, 0, 50, 50);
+	litest_touch_up(dev, 0);
+	litest_timeout_tap(li);
+	assert_released(li, BTN_LEFT);
+}
+END_TEST
+
+/* A lock, then the press that unlocks it, still held */
+static void
+touchpad_lock_and_unlock_press(struct litest_device *dev)
+{
+	struct libinput *li = dev->libinput;
+
+	litest_enable_tap(dev->libinput_device);
+	litest_disable_hold_gestures(dev->libinput_device);
+	click_lock_setup(dev, BTN_LEFT);
+
+	hold(dev, BTN_LEFT);
+	assert_locked(li, BTN_LEFT);
+
+	litest_button_click_debounced(dev, li, BTN_LEFT, true);
+	assert_released(li, BTN_LEFT);
+}
+
+START_TEST(click_lock_touchpad_tap_during_unlock_press)
+{
+	struct litest_device *dev = litest_current_device();
+	struct libinput *li = dev->libinput;
+
+	touchpad_lock_and_unlock_press(dev);
+
+	/* A tap while the unlocking press is down is a click of its own,
+	 * the release of the physical button stays swallowed */
+	litest_touch_down(dev, 0, 50, 50);
+	litest_touch_up(dev, 0);
+	litest_timeout_tap(li);
+	assert_click(li, BTN_LEFT);
+
+	litest_button_click_debounced(dev, li, BTN_LEFT, false);
+	litest_assert_empty_queue(li);
+
+	short_click(dev, BTN_LEFT);
+	assert_click(li, BTN_LEFT);
+}
+END_TEST
+
+START_TEST(click_lock_touchpad_tap_around_unlock_release)
+{
+	struct litest_device *dev = litest_current_device();
+	struct libinput *li = dev->libinput;
+
+	touchpad_lock_and_unlock_press(dev);
+
+	/* Disabling click lock does not change who the release belongs to */
+	litest_disable_click_lock(dev);
+	litest_assert_empty_queue(li);
+
+	/* The physical button is released while the tap is down */
+	litest_touch_down(dev, 0, 50, 50);
+	litest_touch_up(dev, 0);
+	litest_dispatch(li);
+	litest_assert_button_event(li, BTN_LEFT, LIBINPUT_BUTTON_STATE_PRESSED);
+	litest_button_click_debounced(dev, li, BTN_LEFT, false);
+	litest_timeout_tap(li);
+	assert_released(li, BTN_LEFT);
+}
+END_TEST
+
+START_TEST(click_lock_touchpad_click_during_unlock_tap)
+{
+	struct litest_device *dev = litest_current_device();
+	struct libinput *li = dev->libinput;
+
+	litest_enable_tap(dev->libinput_device);
+	litest_disable_hold_gestures(dev->libinput_device);
+	click_lock_setup(dev, BTN_LEFT);
+
+	hold(dev, BTN_LEFT);
+	assert_locked(li, BTN_LEFT);
+
+	/* The tap unlocks and is swallowed. A physical click before the
+	 * tap is over is a click of its own. */
+	litest_touch_down(dev, 0, 50, 50);
+	litest_touch_up(dev, 0);
+	litest_dispatch(li);
+	assert_released(li, BTN_LEFT);
+
+	short_click(dev, BTN_LEFT);
+	litest_timeout_tap(li);
+	assert_click(li, BTN_LEFT);
+}
+END_TEST
+
+START_TEST(click_lock_touchpad_tap_drag_lock_released)
+{
+	struct litest_device *dev = litest_current_device();
+	struct libinput *li = dev->libinput;
+
+	litest_enable_tap(dev->libinput_device);
+	litest_enable_drag_lock_sticky(dev->libinput_device);
+	litest_disable_hold_gestures(dev->libinput_device);
+	click_lock_setup(dev, BTN_LEFT);
+
+	/* tap and drag, the drag lock keeps the button down after the
+	 * finger is lifted */
+	litest_touch_down(dev, 0, 50, 50);
+	litest_touch_up(dev, 0);
+	litest_touch_down(dev, 0, 50, 50);
+	litest_timeout_tap(li);
+	litest_assert_button_event(li, BTN_LEFT, LIBINPUT_BUTTON_STATE_PRESSED);
+	litest_touch_up(dev, 0);
+	litest_timeout_tapndrag(li);
+	litest_assert_empty_queue(li);
+
+	/* A click lock button releases the drag lock first, then its
+	 * press comes through and can lock */
+	litest_button_click_debounced(dev, li, BTN_LEFT, true);
+	litest_assert_button_event(li, BTN_LEFT, LIBINPUT_BUTTON_STATE_RELEASED);
+	litest_assert_button_event(li, BTN_LEFT, LIBINPUT_BUTTON_STATE_PRESSED);
+	litest_assert_empty_queue(li);
+	litest_timeout_click_lock(li);
+	litest_button_click_debounced(dev, li, BTN_LEFT, false);
+	litest_assert_empty_queue(li);
+
+	click(dev, BTN_LEFT);
+	assert_released(li, BTN_LEFT);
+}
+END_TEST
+
+START_TEST(click_lock_touchpad_tap_drag_other_button)
+{
+	struct litest_device *dev = litest_current_device();
+	struct libinput *li = dev->libinput;
+
+	litest_enable_tap(dev->libinput_device);
+	litest_enable_drag_lock_sticky(dev->libinput_device);
+	litest_disable_hold_gestures(dev->libinput_device);
+	click_lock_setup(dev, BTN_LEFT, BTN_RIGHT);
+
+	litest_touch_down(dev, 0, 50, 50);
+	litest_touch_up(dev, 0);
+	litest_touch_down(dev, 0, 50, 50);
+	litest_timeout_tap(li);
+	litest_assert_button_event(li, BTN_LEFT, LIBINPUT_BUTTON_STATE_PRESSED);
+	litest_touch_up(dev, 0);
+	litest_timeout_tapndrag(li);
+	litest_assert_empty_queue(li);
+
+	/* A different click lock button leaves the drag alone */
+	click(dev, BTN_RIGHT);
+	assert_click(li, BTN_RIGHT);
+
+	/* The drag is still on, a tap ends it */
+	litest_touch_down(dev, 0, 50, 50);
+	litest_touch_up(dev, 0);
+	assert_released(li, BTN_LEFT);
+}
+END_TEST
+
+START_TEST(click_lock_touchpad_3fg_drag_released)
+{
+	struct litest_device *dev = litest_current_device();
+	struct libinput *li = dev->libinput;
+
+	if (litest_slot_count(dev) < 3 ||
+	    libinput_device_config_3fg_drag_get_finger_count(dev->libinput_device) < 3)
+		return LITEST_NOT_APPLICABLE;
+
+	litest_enable_buttonareas(dev);
+	litest_enable_3fg_drag(dev->libinput_device, 3);
+	litest_disable_tap(dev->libinput_device);
+	litest_disable_hold_gestures(dev->libinput_device);
+	click_lock_setup(dev, BTN_LEFT);
+
+	double y = 30.0;
+	for (int i = 0; i < 3; i++)
+		litest_touch_down(dev, i, 40 + i * 5, y);
+	litest_dispatch(li);
+	while (y < 50.0) {
+		y += 2;
+		for (int i = 0; i < 3; i++) {
+			litest_touch_move(dev, i, 40 + i * 5, y);
+			if (i == 0)
+				litest_timeout_3fg_drag_or_swipe(li);
+		}
+		litest_dispatch(li);
+	}
+
+	litest_drain_events_of_type(li,
+				    LIBINPUT_EVENT_GESTURE_SWIPE_BEGIN,
+				    LIBINPUT_EVENT_GESTURE_SWIPE_UPDATE,
+				    LIBINPUT_EVENT_GESTURE_SWIPE_END);
+	litest_assert_button_event(li, BTN_LEFT, LIBINPUT_BUTTON_STATE_PRESSED);
+	litest_drain_events_of_type(li, LIBINPUT_EVENT_POINTER_MOTION);
+	litest_assert_empty_queue(li);
+
+	/* A click during the drag releases the drag button first, then its
+	 * press comes through and can lock */
+	clickpad_click(dev, true);
+	litest_assert_button_event(li, BTN_LEFT, LIBINPUT_BUTTON_STATE_RELEASED);
+	litest_assert_button_event(li, BTN_LEFT, LIBINPUT_BUTTON_STATE_PRESSED);
+	litest_timeout_click_lock(li);
+	clickpad_click(dev, false);
+	for (int i = 0; i < 3; i++)
+		litest_touch_up(dev, i);
+	litest_timeout_3fg_drag(li);
+	litest_drain_events_of_type(li, LIBINPUT_EVENT_POINTER_MOTION);
+	litest_assert_empty_queue(li);
+
+	litest_touch_down(dev, 0, 50, 50);
+	clickpad_click(dev, true);
+	clickpad_click(dev, false);
+	litest_touch_up(dev, 0);
+	assert_released(li, BTN_LEFT);
+}
+END_TEST
+
+static void
+topbutton_setup(struct litest_device *touchpad, struct litest_device *trackpoint)
+{
+	litest_disable_hold_gestures(touchpad->libinput_device);
+	litest_enable_buttonareas(touchpad);
+	click_lock_setup(trackpoint, BTN_LEFT);
+	click_lock_setup(touchpad, BTN_LEFT);
+}
+
+static void
+topbutton_assert_button_event(struct libinput *li,
+			      struct libinput_device *device,
+			      unsigned int button,
+			      enum libinput_button_state state)
+{
+	litest_wait_for_event(li);
+	_destroy_(libinput_event) *event = libinput_get_event(li);
+	litest_is_button_event(event, button, state);
+	litest_assert_ptr_eq(libinput_event_get_device(event), device);
+}
+
+START_TEST(click_lock_topbutton_suspend_releases)
+{
+	struct litest_device *touchpad = litest_current_device();
+	struct libinput *li = touchpad->libinput;
+	_destroy_(litest_device) *trackpoint = litest_add_device(li, LITEST_TRACKPOINT);
+	enum libinput_config_status status;
+
+	topbutton_setup(touchpad, trackpoint);
+
+	litest_touch_down(touchpad, 0, 5, 5);
+	clickpad_click(touchpad, true);
+	litest_timeout_click_lock(li);
+	topbutton_assert_button_event(li,
+				      trackpoint->libinput_device,
+				      BTN_LEFT,
+				      LIBINPUT_BUTTON_STATE_PRESSED);
+
+	/* The top button held past the timeout is released when the
+	 * touchpad is disabled, it does not lock */
+	status = libinput_device_config_send_events_set_mode(
+		touchpad->libinput_device,
+		LIBINPUT_CONFIG_SEND_EVENTS_DISABLED);
+	litest_assert_enum_eq(status, LIBINPUT_CONFIG_STATUS_SUCCESS);
+	litest_dispatch(li);
+	topbutton_assert_button_event(li,
+				      trackpoint->libinput_device,
+				      BTN_LEFT,
+				      LIBINPUT_BUTTON_STATE_RELEASED);
+	litest_assert_empty_queue(li);
+
+	clickpad_click(touchpad, false);
+	litest_touch_up(touchpad, 0);
+	litest_assert_empty_queue(li);
+
+	short_click(trackpoint, BTN_LEFT);
+	topbutton_assert_button_event(li,
+				      trackpoint->libinput_device,
+				      BTN_LEFT,
+				      LIBINPUT_BUTTON_STATE_PRESSED);
+	topbutton_assert_button_event(li,
+				      trackpoint->libinput_device,
+				      BTN_LEFT,
+				      LIBINPUT_BUTTON_STATE_RELEASED);
+	litest_assert_empty_queue(li);
+}
+END_TEST
+
 TEST_COLLECTION(click_lock)
 {
 	/* clang-format off */
@@ -1645,6 +2203,19 @@ TEST_COLLECTION(click_lock)
 	litest_add(click_lock_config_buttons, LITEST_RELATIVE|LITEST_BUTTON, LITEST_ABSOLUTE);
 	litest_add(click_lock_config_get_buttons, LITEST_RELATIVE|LITEST_BUTTON, LITEST_ABSOLUTE);
 	litest_add(click_lock_config_threshold, LITEST_RELATIVE|LITEST_BUTTON, LITEST_ABSOLUTE);
+	/* Touchpads with buttons, clickpads */
+	litest_add(click_lock_config_defaults, LITEST_TOUCHPAD|LITEST_BUTTON, LITEST_CLICKPAD);
+	litest_add(click_lock_config_defaults, LITEST_CLICKPAD, LITEST_ANY);
+	litest_add(click_lock_config_mode, LITEST_TOUCHPAD|LITEST_BUTTON, LITEST_CLICKPAD);
+	litest_add(click_lock_config_mode, LITEST_CLICKPAD, LITEST_ANY);
+	litest_add(click_lock_config_timeout, LITEST_TOUCHPAD|LITEST_BUTTON, LITEST_CLICKPAD);
+	litest_add(click_lock_config_timeout, LITEST_CLICKPAD, LITEST_ANY);
+	litest_add(click_lock_config_buttons, LITEST_TOUCHPAD|LITEST_BUTTON, LITEST_CLICKPAD);
+	litest_add(click_lock_config_buttons, LITEST_CLICKPAD, LITEST_ANY);
+	litest_add(click_lock_config_get_buttons, LITEST_TOUCHPAD|LITEST_BUTTON, LITEST_CLICKPAD);
+	litest_add(click_lock_config_get_buttons, LITEST_CLICKPAD, LITEST_ANY);
+	litest_add(click_lock_config_threshold, LITEST_TOUCHPAD|LITEST_BUTTON, LITEST_CLICKPAD);
+	litest_add(click_lock_config_threshold, LITEST_CLICKPAD, LITEST_ANY);
 	litest_add(click_lock_config_unavailable, LITEST_ANY, LITEST_RELATIVE|LITEST_TOUCHPAD);
 	litest_add(click_lock_config_unavailable, LITEST_RELATIVE|LITEST_ABSOLUTE, LITEST_ANY);
 	litest_add_no_device(click_lock_config_unavailable_with_abs);
@@ -1691,5 +2262,25 @@ TEST_COLLECTION(click_lock)
 	litest_add_for_device(click_lock_middleemu_no_middle, LITEST_MOUSE);
 	litest_add_for_device(click_lock_middleemu_middle_locks, LITEST_MOUSE);
 	litest_add_for_device(click_lock_middleemu_overlapping_unlock, LITEST_MOUSE);
+
+	litest_add_for_device(click_lock_clickpad_locks, LITEST_SYNAPTICS_CLICKPAD_X220);
+	litest_add_for_device(click_lock_clickpad_softbutton_locks, LITEST_SYNAPTICS_CLICKPAD_X220);
+	litest_add_for_device(click_lock_clickpad_left_handed, LITEST_SYNAPTICS_CLICKPAD_X220);
+	litest_add_for_device(click_lock_clickpad_move_cancels, LITEST_SYNAPTICS_CLICKPAD_X220);
+	litest_add_for_device(click_lock_touchpad_buttons_lock, LITEST_SYNAPTICS_TOUCHPAD);
+	litest_add_for_device(click_lock_touchpad_sendevents_releases, LITEST_SYNAPTICS_CLICKPAD_X220);
+	litest_add_for_device(click_lock_touchpad_motion_in_release_frame, LITEST_SYNAPTICS_TOUCHPAD);
+	litest_add_for_device(click_lock_touchpad_motion_in_release_frame, LITEST_SYNAPTICS_CLICKPAD_X220);
+	litest_add_for_device(click_lock_touchpad_motion_before_release_frame, LITEST_SYNAPTICS_TOUCHPAD);
+	litest_add_for_device(click_lock_touchpad_motion_before_release_frame, LITEST_SYNAPTICS_CLICKPAD_X220);
+	litest_add_for_device(click_lock_touchpad_tap_and_drag_not_locked, LITEST_SYNAPTICS_CLICKPAD_X220);
+	litest_add_for_device(click_lock_touchpad_tap_unlocks, LITEST_SYNAPTICS_CLICKPAD_X220);
+	litest_add_for_device(click_lock_touchpad_tap_during_unlock_press, LITEST_SYNAPTICS_TOUCHPAD);
+	litest_add_for_device(click_lock_touchpad_tap_around_unlock_release, LITEST_SYNAPTICS_TOUCHPAD);
+	litest_add_for_device(click_lock_touchpad_click_during_unlock_tap, LITEST_SYNAPTICS_TOUCHPAD);
+	litest_add_for_device(click_lock_touchpad_tap_drag_lock_released, LITEST_SYNAPTICS_TOUCHPAD);
+	litest_add_for_device(click_lock_touchpad_tap_drag_other_button, LITEST_SYNAPTICS_TOUCHPAD);
+	litest_add_for_device(click_lock_touchpad_3fg_drag_released, LITEST_SYNAPTICS_RMI4);
+	litest_add_for_device(click_lock_topbutton_suspend_releases, LITEST_SYNAPTICS_TOPBUTTONPAD);
 	/* clang-format on */
 }

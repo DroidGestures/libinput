@@ -1805,6 +1805,12 @@ tp_post_events(struct tp_dispatch *tp, usec_t time)
 	}
 
 	ignore_motion |= tp_tap_handle_state(tp, time);
+
+	/* Before the buttons, so that motion in the frame of a release
+	 * still ends a click lock hold */
+	if (!ignore_motion && !tp->palm.trackpoint_active && !tp->dwt.keyboard_active)
+		tp_gesture_handle_click_lock_motion(tp, time);
+
 	ignore_motion |= tp_post_button_events(tp, time);
 
 	if (tp->palm.trackpoint_active || tp->dwt.keyboard_active) {
@@ -2024,7 +2030,11 @@ tp_clear_state(struct tp_dispatch *tp)
 	struct tp_touch *t;
 
 	/* Unroll the touchpad state.
-	 * Release buttons first. If tp is a clickpad, the button event
+	 * Release a locked button first, its physical release has been
+	 * swallowed already, and a button held for click lock must not
+	 * lock on the release below. That includes a top button held on
+	 * the trackpoint, a locked one stays locked there.
+	 * Release buttons next. If tp is a clickpad, the button event
 	 * must come before the touch up. If it isn't, the order doesn't
 	 * matter anyway
 	 *
@@ -2036,6 +2046,9 @@ tp_clear_state(struct tp_dispatch *tp)
 	 * Then reset thumb state.
 	 *
 	 */
+	evdev_click_lock_release(tp->device, now);
+	if (tp->buttons.trackpoint && tp->buttons.active_is_topbutton)
+		evdev_click_lock_cancel_hold(tp->buttons.trackpoint);
 	tp_release_all_buttons(tp, now);
 	tp_release_all_taps(tp, now);
 
@@ -3857,6 +3870,19 @@ tp_init_pressurepad(struct tp_dispatch *tp, struct evdev_device *device)
 	}
 }
 
+static void
+tp_click_lock_release_drags(struct evdev_device *device,
+			    usec_t time,
+			    evdev_usage_t button)
+{
+	struct tp_dispatch *tp = (struct tp_dispatch *)device->dispatch;
+
+	tp_tap_release_button(tp, time, button);
+	/* three-finger drag is always the left button */
+	if (evdev_usage_eq(button, EVDEV_BTN_LEFT))
+		tp_gesture_release_3fg_drag(tp, time);
+}
+
 static int
 tp_init(struct tp_dispatch *tp, struct evdev_device *device)
 {
@@ -3896,6 +3922,10 @@ tp_init(struct tp_dispatch *tp, struct evdev_device *device)
 
 	tp_init_tap(tp);
 	tp_init_buttons(tp, device);
+	if (libevdev_has_event_code(device->evdev, EV_KEY, BTN_LEFT)) {
+		evdev_init_click_lock(device);
+		device->click_lock.release_drags = tp_click_lock_release_drags;
+	}
 	tp_init_dwt(tp, device);
 	tp_init_dwtp(tp, device);
 	tp_init_palmdetect(tp, device);
@@ -4005,6 +4035,9 @@ tp_change_to_left_handed(struct evdev_device *device)
 		return;
 
 	if (tp->buttons.state & 0x3) /* BTN_LEFT|BTN_RIGHT */
+		return;
+
+	if (evdev_click_lock_is_locked(device))
 		return;
 
 	/* tapping and clickfinger aren't affected by left-handed config,

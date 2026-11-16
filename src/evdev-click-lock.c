@@ -96,6 +96,11 @@
  * are not told apart: the first release of that button is the swallowed
  * one, the button is then up with the last release, as it is for any two
  * overlapping presses of one button.
+ *
+ * Tapping and three-finger drag have drag locks of their own. A press of
+ * a click lock button that such a drag holds releases the drag first.
+ * Otherwise the press would not change the button's down count and be
+ * lost.
  */
 
 static inline const char *
@@ -163,6 +168,14 @@ evdev_click_lock_release(struct evdev_device *device, usec_t time)
 		click_lock_unlock(device, time);
 		break;
 	}
+}
+
+/* Ends a hold but leaves a locked button alone */
+void
+evdev_click_lock_cancel_hold(struct evdev_device *device)
+{
+	if (device->click_lock.state == CLICK_LOCK_PENDING)
+		click_lock_set_state(device, CLICK_LOCK_IDLE);
 }
 
 /* The physical buttons were reset while a swallowed press was down, e.g.
@@ -250,6 +263,13 @@ click_lock_swallow_press(struct evdev_device *device,
 	click_lock_set_state(device, CLICK_LOCK_UNLOCKING);
 }
 
+static void
+click_lock_release_drags(struct evdev_device *device, usec_t time, evdev_usage_t button)
+{
+	if (device->click_lock.release_drags)
+		device->click_lock.release_drags(device, time, button);
+}
+
 /**
  * Filter a button event through click lock.
  *
@@ -268,6 +288,9 @@ evdev_click_lock_filter_button(struct evdev_device *device,
 {
 	bool is_press = state == LIBINPUT_BUTTON_STATE_PRESSED;
 	bool may_hold = source == CLICK_LOCK_SOURCE_BUTTON;
+
+	if (is_press && may_hold && click_lock_has_button(device, button))
+		click_lock_release_drags(device, time, button);
 
 	switch (device->click_lock.state) {
 	case CLICK_LOCK_IDLE:
