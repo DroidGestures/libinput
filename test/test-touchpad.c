@@ -1836,15 +1836,15 @@ START_TEST(touchpad_palm_detect_tap_softbuttons)
 	litest_touch_down(dev, 0, 10, 99);
 	litest_touch_up(dev, 0);
 	litest_timeout_tap(li);
-	litest_assert_button_event(li, BTN_LEFT, LIBINPUT_BUTTON_STATE_PRESSED);
-	litest_assert_button_event(li, BTN_LEFT, LIBINPUT_BUTTON_STATE_RELEASED);
+	litest_assert_tap_down(li, BTN_LEFT, 1);
+	litest_assert_tap_up(li, BTN_LEFT, 1);
 	litest_assert_empty_queue(li);
 
 	litest_touch_down(dev, 0, 90, 99);
 	litest_touch_up(dev, 0);
 	litest_timeout_tap(li);
-	litest_assert_button_event(li, BTN_LEFT, LIBINPUT_BUTTON_STATE_PRESSED);
-	litest_assert_button_event(li, BTN_LEFT, LIBINPUT_BUTTON_STATE_RELEASED);
+	litest_assert_tap_down(li, BTN_LEFT, 1);
+	litest_assert_tap_up(li, BTN_LEFT, 1);
 	litest_assert_empty_queue(li);
 }
 END_TEST
@@ -2063,8 +2063,8 @@ START_TEST(touchpad_palm_detect_tool_palm_tap_after)
 	litest_touch_up(dev, 0);
 	litest_timeout_tap(li);
 
-	litest_assert_button_event(li, BTN_LEFT, LIBINPUT_BUTTON_STATE_PRESSED);
-	litest_assert_button_event(li, BTN_LEFT, LIBINPUT_BUTTON_STATE_RELEASED);
+	litest_assert_tap_down(li, BTN_LEFT, 1);
+	litest_assert_tap_up(li, BTN_LEFT, 1);
 	litest_assert_empty_queue(li);
 }
 END_TEST
@@ -2161,7 +2161,8 @@ START_TEST(touchpad_palm_detect_pressure_late_tap)
 	litest_touch_down(dev, 0, 50, 99);
 	litest_touch_up(dev, 0);
 	litest_timeout_tap(li);
-	litest_assert_only_typed_events(li, LIBINPUT_EVENT_POINTER_BUTTON);
+	litest_assert_tap_down(li, BTN_LEFT, 1);
+	litest_assert_tap_up(li, BTN_LEFT, 1);
 }
 END_TEST
 
@@ -2193,7 +2194,8 @@ START_TEST(touchpad_palm_detect_pressure_tap_hold)
 	litest_touch_down(dev, 0, 50, 99);
 	litest_touch_up(dev, 0);
 	litest_timeout_tap(li);
-	litest_assert_only_typed_events(li, LIBINPUT_EVENT_POINTER_BUTTON);
+	litest_assert_tap_down(li, BTN_LEFT, 1);
+	litest_assert_tap_up(li, BTN_LEFT, 1);
 }
 END_TEST
 
@@ -2237,7 +2239,8 @@ START_TEST(touchpad_palm_detect_pressure_tap_hold_2ndfg)
 	litest_touch_down(dev, 0, 50, 99);
 	litest_touch_up(dev, 0);
 	litest_timeout_tap(li);
-	litest_assert_only_typed_events(li, LIBINPUT_EVENT_POINTER_BUTTON);
+	litest_assert_tap_down(li, BTN_LEFT, 1);
+	litest_assert_tap_up(li, BTN_LEFT, 1);
 }
 END_TEST
 
@@ -2270,8 +2273,8 @@ START_TEST(touchpad_palm_detect_move_and_tap)
 	litest_touch_up(dev, 1);
 	litest_timeout_tap(li);
 
-	litest_assert_button_event(li, BTN_LEFT, LIBINPUT_BUTTON_STATE_PRESSED);
-	litest_assert_button_event(li, BTN_LEFT, LIBINPUT_BUTTON_STATE_RELEASED);
+	litest_assert_tap_down(li, BTN_LEFT, 1);
+	litest_assert_tap_up(li, BTN_LEFT, 1);
 	litest_assert_empty_queue(li);
 }
 END_TEST
@@ -2722,8 +2725,8 @@ START_TEST(touchpad_left_handed_tapping)
 	litest_timeout_tap(li);
 
 	/* Tapping is unaffected by left-handed setting */
-	litest_assert_button_event(li, BTN_LEFT, LIBINPUT_BUTTON_STATE_PRESSED);
-	litest_assert_button_event(li, BTN_LEFT, LIBINPUT_BUTTON_STATE_RELEASED);
+	litest_assert_tap_down(li, BTN_LEFT, 1);
+	litest_assert_tap_up(li, BTN_LEFT, 1);
 }
 END_TEST
 
@@ -2752,8 +2755,8 @@ START_TEST(touchpad_left_handed_tapping_2fg)
 	litest_timeout_tap(li);
 
 	/* Tapping is unaffected by left-handed setting */
-	litest_assert_button_event(li, BTN_RIGHT, LIBINPUT_BUTTON_STATE_PRESSED);
-	litest_assert_button_event(li, BTN_RIGHT, LIBINPUT_BUTTON_STATE_RELEASED);
+	litest_assert_tap_down(li, BTN_RIGHT, 2);
+	litest_assert_tap_up(li, BTN_RIGHT, 2);
 }
 END_TEST
 
@@ -4595,7 +4598,8 @@ START_TEST(touchpad_dwt_tap)
 	litest_timeout_dwt_short(li);
 	litest_touch_down(touchpad, 0, 50, 50);
 	litest_touch_up(touchpad, 0);
-	litest_assert_only_typed_events(li, LIBINPUT_EVENT_POINTER_BUTTON);
+	litest_assert_tap_down(li, BTN_LEFT, 1);
+	litest_assert_tap_up(li, BTN_LEFT, 1);
 
 	litest_device_destroy(keyboard);
 }
@@ -4973,7 +4977,7 @@ START_TEST(touchpad_dwt_dont_interrupt_tap_drag)
 		litest_touch_move_to(touchpad, 0, 50, 50, 70, 50, 10);
 		litest_dispatch(li);
 
-		litest_assert_button_event(li, BTN_LEFT, LIBINPUT_BUTTON_STATE_PRESSED);
+		litest_assert_tap_down(li, BTN_LEFT, 1);
 		litest_assert_only_typed_events(li, LIBINPUT_EVENT_POINTER_MOTION);
 	}
 
@@ -5001,7 +5005,7 @@ START_TEST(touchpad_dwt_dont_interrupt_tap_drag)
 
 	litest_touch_up(touchpad, 0);
 	litest_dispatch(li);
-	litest_assert_button_event(li, BTN_LEFT, LIBINPUT_BUTTON_STATE_RELEASED);
+	litest_assert_tap_up(li, BTN_LEFT, 1);
 	litest_assert_empty_queue(li);
 }
 END_TEST
@@ -5572,7 +5576,8 @@ START_TEST(touchpad_dwt_enable_during_tap)
 	litest_dispatch(li);
 	litest_touch_up(touchpad, 0);
 	litest_timeout_tap(li);
-	litest_assert_only_typed_events(li, LIBINPUT_EVENT_POINTER_BUTTON);
+	litest_assert_tap_down(li, BTN_LEFT, 1);
+	litest_assert_tap_up(li, BTN_LEFT, 1);
 
 	litest_touch_down(touchpad, 0, 50, 50);
 	litest_touch_move_to(touchpad, 0, 50, 50, 70, 50, 10);
@@ -6860,11 +6865,17 @@ START_TEST(touchpad_pressure_tap_2fg_1fg_light)
 	litest_dispatch(li);
 
 	event = libinput_get_event(li);
+	litest_is_tap_event(event, 1, LIBINPUT_EVENT_GESTURE_TAP_BEGIN);
+	libinput_event_destroy(event);
+	event = libinput_get_event(li);
 	litest_is_button_event(event, BTN_LEFT, LIBINPUT_BUTTON_STATE_PRESSED);
 	libinput_event_destroy(event);
 
 	litest_timeout_tap(li);
 
+	event = libinput_get_event(li);
+	litest_is_tap_event(event, 1, LIBINPUT_EVENT_GESTURE_TAP_END);
+	libinput_event_destroy(event);
 	event = libinput_get_event(li);
 	litest_is_button_event(event, BTN_LEFT, LIBINPUT_BUTTON_STATE_RELEASED);
 	libinput_event_destroy(event);

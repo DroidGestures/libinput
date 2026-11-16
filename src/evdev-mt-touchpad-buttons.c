@@ -1224,7 +1224,11 @@ tp_notify_clickpadbutton(struct tp_dispatch *tp,
 			return 0;
 	}
 
-	evdev_pointer_notify_button(tp->device, time, button, state);
+	evdev_pointer_notify_button(tp->device,
+				    time,
+				    button,
+				    state,
+				    LIBINPUT_EVENT_POINTER_FLAGS_NONE);
 	return 1;
 }
 

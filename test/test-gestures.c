@@ -1441,8 +1441,8 @@ START_TEST(gestures_hold_once_on_double_tap)
 
 	litest_assert_gesture_event(li, LIBINPUT_EVENT_GESTURE_HOLD_BEGIN, 1);
 	litest_assert_gesture_event(li, LIBINPUT_EVENT_GESTURE_HOLD_END, 1);
-	litest_assert_button_event(li, BTN_LEFT, LIBINPUT_BUTTON_STATE_PRESSED);
-	litest_assert_button_event(li, BTN_LEFT, LIBINPUT_BUTTON_STATE_RELEASED);
+	litest_assert_tap_down(li, BTN_LEFT, 1);
+	litest_assert_tap_up(li, BTN_LEFT, 1);
 	litest_assert_empty_queue(li);
 
 	/* Double tap, don't generate an extra hold gesture */
@@ -1450,8 +1450,8 @@ START_TEST(gestures_hold_once_on_double_tap)
 	litest_touch_up(dev, 0);
 	litest_timeout_gesture_quick_hold(li);
 
-	litest_assert_button_event(li, BTN_LEFT, LIBINPUT_BUTTON_STATE_PRESSED);
-	litest_assert_button_event(li, BTN_LEFT, LIBINPUT_BUTTON_STATE_RELEASED);
+	litest_assert_tap_down(li, BTN_LEFT, 1);
+	litest_assert_tap_up(li, BTN_LEFT, 1);
 
 	litest_assert_empty_queue(li);
 }
@@ -1530,13 +1530,13 @@ START_TEST(gestures_hold_once_tap_n_drag)
 	litest_touch_move_to(dev, 0, 50, 50, 80, 80, 20);
 	litest_dispatch(li);
 
-	litest_assert_button_event(li, button, LIBINPUT_BUTTON_STATE_PRESSED);
+	litest_assert_tap_down(li, button, nfingers);
 	litest_assert_only_typed_events(li, LIBINPUT_EVENT_POINTER_MOTION);
 
 	litest_touch_up(dev, 0);
 	litest_dispatch(li);
 
-	litest_assert_button_event(li, button, LIBINPUT_BUTTON_STATE_RELEASED);
+	litest_assert_tap_up(li, button, nfingers);
 	litest_assert_empty_queue(li);
 }
 END_TEST
@@ -1786,7 +1786,7 @@ START_TEST(gestures_3fg_drag_lock_resume_3fg_release_no_motion)
 	bool wait_for_timeout = litest_test_param_get_bool(test_env->params, "wait");
 
 	/* tap-enabled for 4fg finger count doesn't make a difference */
-	bool expect_tap = finger_count <= 3 && tap_enabled && !wait_for_timeout;
+	bool expect_tap = tap_enabled && !wait_for_timeout;
 
 	if (litest_slot_count(dev) < 3)
 		return LITEST_NOT_APPLICABLE;
@@ -1859,12 +1859,21 @@ START_TEST(gestures_3fg_drag_lock_resume_3fg_release_no_motion)
 					   BTN_LEFT,
 					   LIBINPUT_BUTTON_STATE_RELEASED);
 		litest_checkpoint("Expecting 3fg tap");
-		litest_assert_button_event(li,
-					   BTN_MIDDLE,
-					   LIBINPUT_BUTTON_STATE_PRESSED);
-		litest_assert_button_event(li,
-					   BTN_MIDDLE,
-					   LIBINPUT_BUTTON_STATE_RELEASED);
+		if (finger_count < 4) {
+			litest_assert_button_event(li,
+						   BTN_MIDDLE,
+						   LIBINPUT_BUTTON_STATE_PRESSED);
+			litest_assert_button_event(li,
+						   BTN_MIDDLE,
+						   LIBINPUT_BUTTON_STATE_RELEASED);
+		} else {
+			litest_assert_gesture_event(li,
+						    LIBINPUT_EVENT_GESTURE_TAP_BEGIN,
+						    finger_count);
+			litest_assert_gesture_event(li,
+						    LIBINPUT_EVENT_GESTURE_TAP_END,
+						    finger_count);
+		}
 	}
 
 	litest_assert_empty_queue(li);
@@ -2101,8 +2110,8 @@ START_TEST(gestures_3fg_drag_lock_resume_1fg_tap)
 	/* 3fg drag lock must be cancelled */
 	litest_assert_button_event(li, BTN_LEFT, LIBINPUT_BUTTON_STATE_RELEASED);
 	/* And a 1fg tap */
-	litest_assert_button_event(li, BTN_LEFT, LIBINPUT_BUTTON_STATE_PRESSED);
-	litest_assert_button_event(li, BTN_LEFT, LIBINPUT_BUTTON_STATE_RELEASED);
+	litest_assert_tap_down(li, BTN_LEFT, 1);
+	litest_assert_tap_up(li, BTN_LEFT, 1);
 	litest_assert_empty_queue(li);
 
 	litest_timeout_3fg_drag(li);
@@ -2283,9 +2292,9 @@ TEST_COLLECTION(gestures)
 
 	litest_add(gestures_hold_then_3fg_buttonarea_scroll, LITEST_CLICKPAD, LITEST_SINGLE_TOUCH);
 
-	litest_add(gestures_hold_once_on_double_tap, LITEST_TOUCHPAD, LITEST_SINGLE_TOUCH);
+	litest_add(gestures_hold_once_on_double_tap, LITEST_TOUCHPAD, LITEST_SINGLE_TOUCH | LITEST_SEMI_MT);
 	litest_with_parameters(params, "fingers", 'i', 3, 1, 2, 3) {
-		litest_add_parametrized(gestures_hold_once_tap_n_drag, LITEST_TOUCHPAD, LITEST_ANY, params);
+		litest_add_parametrized(gestures_hold_once_tap_n_drag, LITEST_TOUCHPAD, LITEST_SEMI_MT, params);
 	}
 
 	litest_add(gestures_hold_and_motion_before_timeout, LITEST_TOUCHPAD, LITEST_SINGLE_TOUCH);

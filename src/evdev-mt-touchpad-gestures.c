@@ -713,11 +713,12 @@ tp_gesture_handle_event_on_state_hold(struct tp_dispatch *tp,
 		tp->gesture.state = GESTURE_STATE_3FG_DRAG_OR_SWIPE_START;
 		break;
 	case GESTURE_EVENT_HOLD_TIMEOUT:
-	case GESTURE_EVENT_TAP_TIMEOUT:
 	case GESTURE_EVENT_FINGER_DETECTED:
 	case GESTURE_EVENT_3FG_DRAG_OR_SWIPE_TIMEOUT:
 	case GESTURE_EVENT_3FG_DRAG_RELEASE_TIMEOUT:
 		log_gesture_bug(tp, event);
+		break;
+	case GESTURE_EVENT_TAP_TIMEOUT:
 		break;
 	}
 }
@@ -1157,7 +1158,8 @@ tp_gesture_handle_event_on_state_3fg_drag(struct tp_dispatch *tp,
 		evdev_pointer_notify_button(tp->device,
 					    tp->gesture.drag_3fg_release_time,
 					    evdev_usage_from(EVDEV_BTN_LEFT),
-					    LIBINPUT_BUTTON_STATE_RELEASED);
+					    LIBINPUT_BUTTON_STATE_RELEASED,
+					    LIBINPUT_EVENT_POINTER_FLAGS_NONE);
 		tp->gesture.state = GESTURE_STATE_NONE;
 		break;
 	case GESTURE_EVENT_END:
@@ -1171,7 +1173,8 @@ tp_gesture_handle_event_on_state_3fg_drag(struct tp_dispatch *tp,
 			evdev_pointer_notify_button(tp->device,
 						    tp->gesture.drag_3fg_release_time,
 						    evdev_usage_from(EVDEV_BTN_LEFT),
-						    LIBINPUT_BUTTON_STATE_RELEASED);
+						    LIBINPUT_BUTTON_STATE_RELEASED,
+						    LIBINPUT_EVENT_POINTER_FLAGS_NONE);
 			tp->gesture.state = GESTURE_STATE_NONE;
 		}
 		break;
@@ -1209,7 +1212,8 @@ tp_gesture_handle_event_on_state_3fg_drag_released(struct tp_dispatch *tp,
 		evdev_pointer_notify_button(tp->device,
 					    tp->gesture.drag_3fg_release_time,
 					    evdev_usage_from(EVDEV_BTN_LEFT),
-					    LIBINPUT_BUTTON_STATE_RELEASED);
+					    LIBINPUT_BUTTON_STATE_RELEASED,
+					    LIBINPUT_EVENT_POINTER_FLAGS_NONE);
 		tp->gesture.state = GESTURE_STATE_NONE;
 		break;
 	case GESTURE_EVENT_FINGER_SWITCH_TIMEOUT:
@@ -1226,7 +1230,8 @@ tp_gesture_handle_event_on_state_3fg_drag_released(struct tp_dispatch *tp,
 		evdev_pointer_notify_button(tp->device,
 					    tp->gesture.drag_3fg_release_time,
 					    evdev_usage_from(EVDEV_BTN_LEFT),
-					    LIBINPUT_BUTTON_STATE_RELEASED);
+					    LIBINPUT_BUTTON_STATE_RELEASED,
+					    LIBINPUT_EVENT_POINTER_FLAGS_NONE);
 		tp->gesture.state = GESTURE_STATE_POINTER_MOTION;
 		break;
 	case GESTURE_EVENT_HOLD_AND_MOTION_START:
@@ -1240,7 +1245,8 @@ tp_gesture_handle_event_on_state_3fg_drag_released(struct tp_dispatch *tp,
 		evdev_pointer_notify_button(tp->device,
 					    tp->gesture.drag_3fg_release_time,
 					    evdev_usage_from(EVDEV_BTN_LEFT),
-					    LIBINPUT_BUTTON_STATE_RELEASED);
+					    LIBINPUT_BUTTON_STATE_RELEASED,
+					    LIBINPUT_EVENT_POINTER_FLAGS_NONE);
 		tp->gesture.state = GESTURE_STATE_SCROLL_START;
 		break;
 	case GESTURE_EVENT_SWIPE_START:
@@ -1866,7 +1872,8 @@ tp_gesture_handle_state_3fg_drag_start(struct tp_dispatch *tp, usec_t time)
 	evdev_pointer_notify_button(tp->device,
 				    time,
 				    evdev_usage_from(EVDEV_BTN_LEFT),
-				    LIBINPUT_BUTTON_STATE_PRESSED);
+				    LIBINPUT_BUTTON_STATE_PRESSED,
+				    LIBINPUT_EVENT_POINTER_FLAGS_NONE);
 	/* FIXME: immediately send a motion event? */
 	tp->gesture.state = GESTURE_STATE_3FG_DRAG;
 }

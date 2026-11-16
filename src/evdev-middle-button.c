@@ -132,7 +132,11 @@ middlebutton_post_event(struct evdev_device *device,
 			evdev_usage_t button,
 			enum libinput_button_state state)
 {
-	evdev_pointer_notify_button(device, now, button, state);
+	evdev_pointer_notify_button(device,
+				    now,
+				    button,
+				    state,
+				    LIBINPUT_EVENT_POINTER_FLAGS_NONE);
 }
 
 static int

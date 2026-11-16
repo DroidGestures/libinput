@@ -108,6 +108,12 @@ event_type_to_str(enum libinput_event_type evtype)
 	case LIBINPUT_EVENT_GESTURE_HOLD_END:
 		type = "GESTURE_HOLD_END";
 		break;
+	case LIBINPUT_EVENT_GESTURE_TAP_BEGIN:
+		type = "GESTURE_TAP_BEGIN";
+		break;
+	case LIBINPUT_EVENT_GESTURE_TAP_END:
+		type = "GESTURE_TAP_END";
+		break;
 	case LIBINPUT_EVENT_TABLET_TOOL_AXIS:
 		type = "TABLET_TOOL_AXIS";
 		break;
@@ -384,13 +390,14 @@ print_pointer_button_event(struct libinput_event *ev,
 	buttonname = libevdev_event_code_get_name(EV_KEY, button);
 
 	state = libinput_event_pointer_get_button_state(p);
-	return strdup_printf("%s\t%s (%d) %s, seat count: %u",
+	return strdup_printf("%s\t%s (%d) %s, seat count: %u%s",
 			     time,
 			     buttonname ? buttonname : "???",
 			     button,
 			     state == LIBINPUT_BUTTON_STATE_PRESSED ? "pressed"
 								    : "released",
-			     libinput_event_pointer_get_seat_button_count(p));
+			     libinput_event_pointer_get_seat_button_count(p),
+			     libinput_event_pointer_get_button_is_tap(p) ? " tap" : "");
 }
 
 static char *
@@ -787,12 +794,24 @@ print_gesture_event_without_coords(struct libinput_event *ev,
 	enum libinput_event_type type;
 	char time[16];
 
+	_autofree_ char *button = NULL;
+
 	type = libinput_event_get_type(ev);
 
 	if (type == LIBINPUT_EVENT_GESTURE_SWIPE_END ||
 	    type == LIBINPUT_EVENT_GESTURE_PINCH_END ||
+	    type == LIBINPUT_EVENT_GESTURE_TAP_END ||
 	    type == LIBINPUT_EVENT_GESTURE_HOLD_END)
 		cancelled = libinput_event_gesture_get_cancelled(t);
+
+	if (type == LIBINPUT_EVENT_GESTURE_TAP_BEGIN ||
+	    type == LIBINPUT_EVENT_GESTURE_TAP_END) {
+		uint32_t btn = libinput_event_gesture_get_button(t);
+		const char *buttonname = libevdev_event_code_get_name(EV_KEY, btn);
+		button = strdup_printf("button: %s (%d)",
+				       buttonname ? buttonname : "???",
+				       btn);
+	}
 
 	print_event_time(time, opts->start_time, libinput_event_gesture_get_time(t));
 	return strdup_printf("%s\t%d%s",
@@ -1079,6 +1098,12 @@ libinput_event_to_str(struct libinput_event *ev,
 		event_str = print_gesture_event_without_coords(ev, &opts);
 		break;
 	case LIBINPUT_EVENT_GESTURE_HOLD_END:
+		event_str = print_gesture_event_without_coords(ev, &opts);
+		break;
+	case LIBINPUT_EVENT_GESTURE_TAP_BEGIN:
+		event_str = print_gesture_event_without_coords(ev, &opts);
+		break;
+	case LIBINPUT_EVENT_GESTURE_TAP_END:
 		event_str = print_gesture_event_without_coords(ev, &opts);
 		break;
 	case LIBINPUT_EVENT_TABLET_TOOL_AXIS:

@@ -3714,6 +3714,12 @@ litest_event_type_str(enum libinput_event_type type)
 	case LIBINPUT_EVENT_GESTURE_HOLD_END:
 		str = "GESTURE HOLD END";
 		break;
+	case LIBINPUT_EVENT_GESTURE_TAP_BEGIN:
+		str = "GESTURE TAP BEGIN";
+		break;
+	case LIBINPUT_EVENT_GESTURE_TAP_END:
+		str = "GESTURE TAP END";
+		break;
 	case LIBINPUT_EVENT_TABLET_TOOL_AXIS:
 		str = "TABLET TOOL AXIS";
 		break;
@@ -4038,6 +4044,25 @@ litest_is_button_event(struct libinput_event *event,
 	return ptrev;
 }
 
+struct libinput_event_gesture *
+litest_is_tap_event(struct libinput_event *event,
+		    unsigned int nfingers,
+		    enum libinput_event_type which)
+{
+	assert(which == LIBINPUT_EVENT_GESTURE_TAP_BEGIN ||
+	       which == LIBINPUT_EVENT_GESTURE_TAP_END);
+
+	struct libinput_event_gesture *gev;
+
+	litest_assert_ptr_notnull(event);
+	litest_assert_event_type(event, which);
+	gev = libinput_event_get_gesture_event(event);
+	litest_assert_int_eq(libinput_event_gesture_get_finger_count(gev),
+			     (int)nfingers);
+
+	return gev;
+}
+
 struct libinput_event_pointer *
 litest_is_axis_event(struct libinput_event *event,
 		     enum libinput_event_type axis_type,
@@ -4128,6 +4153,33 @@ _litest_assert_button_event(struct libinput *li,
 	litest_wait_for_event(li);
 	_destroy_(libinput_event) *event = libinput_get_event(li);
 	litest_is_button_event(event, button, state);
+}
+
+void
+_litest_assert_tap(struct libinput *li,
+		   unsigned int button,
+		   unsigned int nfingers,
+		   enum libinput_button_state state,
+		   const char *func,
+		   int line)
+{
+	_litest_checkpoint(
+		func,
+		line,
+		ANSI_CYAN,
+		"asserting tap event for %d fingers, button %s (%d) state %d",
+		nfingers,
+		libevdev_event_code_get_name(EV_KEY, button),
+		button,
+		state);
+	litest_wait_for_event(li);
+	_destroy_(libinput_event) *tap = libinput_get_event(li);
+	if (state == LIBINPUT_BUTTON_STATE_PRESSED)
+		litest_is_tap_event(tap, nfingers, LIBINPUT_EVENT_GESTURE_TAP_BEGIN);
+	else
+		litest_is_tap_event(tap, nfingers, LIBINPUT_EVENT_GESTURE_TAP_END);
+	_destroy_(libinput_event) *bev = libinput_get_event(li);
+	litest_is_button_event(bev, button, state);
 }
 
 struct libinput_event_touch *

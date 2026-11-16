@@ -297,6 +297,40 @@ depending on whether tap-to-click is enabled and the hold gesture event may
 not match touch sequences that a user would expect to be a tap-to-click
 interaction.
 
+.. _gestures_tap:
+
+------------------------------------------------------------------------------
+Tap gestures
+------------------------------------------------------------------------------
+
+Tap gestures are identical to the :ref:`tapping`. Like :ref:`gestures_hold`
+they consist of a **begin** event and an **end** event, corresponding
+to the **logical first time** the finger has been put down and when the
+finger has been **logically** released. This may not directly map to the
+physical finger up and down events, e.g. where :ref:`tapndrag` is enabled
+the **end** event maps to the eventual finger up after tap-and-drag completes.
+
+Tap gestures are sent in addition to any button events caused by tapping,
+the **libinput_event_pointer_get_button_is_tap()** API provides information
+on whether a button event was caused by a tap and
+**libinput_event_gesture_get_button()** returns the button that this tap is
+mapped to. A caller that handles tap gestures can thus ignore any pointer event
+that was caused by a tap and emulate button presses acccordingly.
+
+A typical event sequence will look like this:
+
++---------------------+------------------------+--------------------+
+| Action              |  Event                 | Details            |
++=====================+========================+====================+
+| | Finger 1 down     | | **tap begin**        | | 1fg, BTN_LEFT    |
+| |                   | | **button press**     | | BTN_LEFT, is_tap |
++---------------------+------------------------+--------------------+
+| | Finger 1 up       | | **tap end**          | | 1fg, BTN_LEFT    |
+| |                   | | **button release**   | | BTN_LEFT, is_tap |
++---------------------+------------------------+--------------------+
+
+
+
 .. _gestures_touchscreens:
 
 ------------------------------------------------------------------------------

@@ -175,14 +175,19 @@ evdev_pointer_notify_physical_button(struct evdev_device *device,
 	if (evdev_middlebutton_filter_button(device, time, button, state))
 		return;
 
-	evdev_pointer_notify_button(device, time, button, state);
+	evdev_pointer_notify_button(device,
+				    time,
+				    button,
+				    state,
+				    LIBINPUT_EVENT_POINTER_FLAGS_NONE);
 }
 
 static void
 evdev_pointer_post_button(struct evdev_device *device,
 			  usec_t time,
 			  evdev_usage_t button,
-			  enum libinput_button_state state)
+			  enum libinput_button_state state,
+			  enum libinput_event_pointer_flags flags)
 {
 	int down_count;
 
@@ -305,11 +310,13 @@ evdev_button_scroll_button(struct evdev_device *device, usec_t time, int is_pres
 			evdev_pointer_post_button(device,
 						  device->scroll.button_down_time,
 						  device->scroll.button,
-						  LIBINPUT_BUTTON_STATE_PRESSED);
+						  LIBINPUT_BUTTON_STATE_PRESSED,
+						  LIBINPUT_EVENT_POINTER_FLAGS_NONE);
 			evdev_pointer_post_button(device,
 						  time,
 						  device->scroll.button,
-						  LIBINPUT_BUTTON_STATE_RELEASED);
+						  LIBINPUT_BUTTON_STATE_RELEASED,
+						  LIBINPUT_EVENT_POINTER_FLAGS_NONE);
 			break;
 		case BUTTONSCROLL_SCROLLING:
 			evdev_log_debug(device, "btnscroll: up\n");
@@ -327,7 +334,8 @@ void
 evdev_pointer_notify_button(struct evdev_device *device,
 			    usec_t time,
 			    evdev_usage_t button,
-			    enum libinput_button_state state)
+			    enum libinput_button_state state,
+			    enum libinput_event_pointer_flags flags)
 {
 	if (device->scroll.method == LIBINPUT_CONFIG_SCROLL_ON_BUTTON_DOWN &&
 	    evdev_usage_cmp(button, device->scroll.button) == 0) {
@@ -335,7 +343,7 @@ evdev_pointer_notify_button(struct evdev_device *device,
 		return;
 	}
 
-	evdev_pointer_post_button(device, time, button, state);
+	evdev_pointer_post_button(device, time, button, state, flags);
 }
 
 void
