@@ -101,6 +101,13 @@
  * a click lock button that such a drag holds releases the drag first.
  * Otherwise the press would not change the button's down count and be
  * lost.
+ *
+ * A touchpad and its paired trackpoint are one physical device, e.g. a
+ * ThinkPad with its top software buttons routed through the trackpoint.
+ * Motion of either counts towards a hold on either, a button down on
+ * either keeps the other from starting a hold, and a press on either ends
+ * a hold or lock on the other and releases a drag of that button on the
+ * touchpad.
  */
 
 static inline const char *
@@ -188,6 +195,43 @@ evdev_click_lock_forget_buttons(struct evdev_device *device)
 		click_lock_set_state(device, CLICK_LOCK_IDLE);
 }
 
+/* A pair is one touchpad and one trackpoint. Where several touchpads pair
+ * with a trackpoint, the first one is its other half for click lock. */
+void
+evdev_click_lock_pair(struct evdev_device *touchpad, struct evdev_device *trackpoint)
+{
+	if (touchpad->click_lock.paired || trackpoint->click_lock.paired)
+		return;
+
+	touchpad->click_lock.paired = trackpoint;
+	trackpoint->click_lock.paired = touchpad;
+}
+
+/* The touchpad that was the trackpoint's other half is being removed,
+ * another touchpad that uses the same trackpoint takes its place */
+void
+evdev_click_lock_pair_instead_of(struct evdev_device *touchpad,
+				 struct evdev_device *trackpoint,
+				 struct evdev_device *removed)
+{
+	if (trackpoint->click_lock.paired == removed)
+		evdev_click_lock_unpair(removed);
+
+	evdev_click_lock_pair(touchpad, trackpoint);
+}
+
+void
+evdev_click_lock_unpair(struct evdev_device *device)
+{
+	struct evdev_device *paired = device->click_lock.paired;
+
+	if (paired) {
+		assert(paired->click_lock.paired == device);
+		paired->click_lock.paired = NULL;
+	}
+	device->click_lock.paired = NULL;
+}
+
 static bool
 click_lock_has_button(struct evdev_device *device, evdev_usage_t button)
 {
@@ -239,6 +283,11 @@ click_lock_is_eligible(struct evdev_device *device, evdev_usage_t button)
 	if (click_lock_any_button_down(device))
 		return false;
 
+	/* The same for a button on the other half of a pair */
+	if (device->click_lock.paired &&
+	    click_lock_any_button_down(device->click_lock.paired))
+		return false;
+
 	return true;
 }
 
@@ -266,8 +315,13 @@ click_lock_swallow_press(struct evdev_device *device,
 static void
 click_lock_release_drags(struct evdev_device *device, usec_t time, evdev_usage_t button)
 {
+	struct evdev_device *paired = device->click_lock.paired;
+
 	if (device->click_lock.release_drags)
 		device->click_lock.release_drags(device, time, button);
+
+	if (paired && paired->click_lock.release_drags)
+		paired->click_lock.release_drags(paired, time, button);
 }
 
 /**
@@ -288,9 +342,30 @@ evdev_click_lock_filter_button(struct evdev_device *device,
 {
 	bool is_press = state == LIBINPUT_BUTTON_STATE_PRESSED;
 	bool may_hold = source == CLICK_LOCK_SOURCE_BUTTON;
+	struct evdev_device *paired = device->click_lock.paired;
 
 	if (is_press && may_hold && click_lock_has_button(device, button))
 		click_lock_release_drags(device, time, button);
+
+	if (is_press && paired &&
+	    (paired->click_lock.state == CLICK_LOCK_PENDING ||
+	     paired->click_lock.state == CLICK_LOCK_LOCKED)) {
+		bool same = paired->click_lock.state == CLICK_LOCK_LOCKED &&
+			    evdev_usage_cmp(button, paired->click_lock.button) == 0;
+
+		/* As if the press was on the other half */
+		evdev_click_lock_release(paired, time);
+
+		/* This half is idle here: it cannot start a hold while a
+		 * button is locked on the other half. Unless the two were
+		 * paired while both were busy, then the press is handled
+		 * below like any other. */
+		if (same && device->click_lock.state == CLICK_LOCK_IDLE) {
+			click_lock_swallow_press(device, button, source);
+			return true;
+		}
+		may_hold = false;
+	}
 
 	switch (device->click_lock.state) {
 	case CLICK_LOCK_IDLE:
@@ -355,9 +430,8 @@ evdev_click_lock_filter_button(struct evdev_device *device,
 	return false;
 }
 
-void
-evdev_click_lock_handle_motion(struct evdev_device *device,
-			       const struct phys_coords *delta)
+static void
+click_lock_handle_motion(struct evdev_device *device, const struct phys_coords *delta)
 {
 	if (device->click_lock.state != CLICK_LOCK_PENDING)
 		return;
@@ -371,6 +445,15 @@ evdev_click_lock_handle_motion(struct evdev_device *device,
 		evdev_log_debug(device, "click lock: moved, not locking\n");
 		click_lock_set_state(device, CLICK_LOCK_IDLE);
 	}
+}
+
+void
+evdev_click_lock_handle_motion(struct evdev_device *device,
+			       const struct phys_coords *delta)
+{
+	click_lock_handle_motion(device, delta);
+	if (device->click_lock.paired)
+		click_lock_handle_motion(device->click_lock.paired, delta);
 }
 
 static uint32_t

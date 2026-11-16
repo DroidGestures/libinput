@@ -1992,6 +1992,7 @@ tp_interface_remove(struct evdev_dispatch *dispatch)
 	}
 	tp->dwt.keyboard_active = false;
 
+	evdev_click_lock_unpair(tp->device);
 	tp_remove_tap(tp);
 	tp_remove_buttons(tp);
 	tp_remove_sendevents(tp);
@@ -2453,6 +2454,7 @@ tp_pair_trackpoint(struct evdev_device *touchpad, struct evdev_device *trackpoin
 		/* Don't send any pending releases to the new trackpoint */
 		tp->buttons.active_is_topbutton = false;
 		tp->buttons.trackpoint = trackpoint;
+		evdev_click_lock_pair(touchpad, trackpoint);
 		if (tp->palm.monitor_trackpoint)
 			libinput_device_add_event_listener(
 				&trackpoint->base,
@@ -2704,6 +2706,11 @@ tp_interface_device_removed(struct evdev_device *device,
 			libinput_device_remove_event_listener(
 				&tp->palm.trackpoint_listener);
 		tp->buttons.trackpoint = NULL;
+		evdev_click_lock_unpair(device);
+	} else if (tp->buttons.trackpoint) {
+		evdev_click_lock_pair_instead_of(device,
+						 tp->buttons.trackpoint,
+						 removed_device);
 	}
 
 	list_for_each_safe(kbd, &tp->dwt.paired_keyboard_list, link) {

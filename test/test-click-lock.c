@@ -2193,6 +2193,336 @@ START_TEST(click_lock_topbutton_suspend_releases)
 }
 END_TEST
 
+START_TEST(click_lock_topbutton_touchpad_motion)
+{
+	struct litest_device *touchpad = litest_current_device();
+	struct libinput *li = touchpad->libinput;
+	_destroy_(litest_device) *trackpoint = litest_add_device(li, LITEST_TRACKPOINT);
+
+	topbutton_setup(touchpad, trackpoint);
+
+	/* Hold the top button, drag with another finger: the top button is
+	 * a trackpoint button but the touchpad motion ends its hold */
+	litest_touch_down(touchpad, 0, 5, 5);
+	clickpad_click(touchpad, true);
+	litest_touch_down(touchpad, 1, 30, 60);
+	litest_touch_move_to(touchpad, 1, 30, 60, 80, 60, 20);
+	litest_timeout_click_lock(li);
+	clickpad_click(touchpad, false);
+	litest_touch_up(touchpad, 1);
+	litest_touch_up(touchpad, 0);
+
+	topbutton_assert_button_event(li,
+				      trackpoint->libinput_device,
+				      BTN_LEFT,
+				      LIBINPUT_BUTTON_STATE_PRESSED);
+	litest_drain_events_of_type(li, LIBINPUT_EVENT_POINTER_MOTION);
+	topbutton_assert_button_event(li,
+				      trackpoint->libinput_device,
+				      BTN_LEFT,
+				      LIBINPUT_BUTTON_STATE_RELEASED);
+	litest_assert_empty_queue(li);
+}
+END_TEST
+
+START_TEST(click_lock_topbutton_touchpad_motion_in_release_frame)
+{
+	struct litest_device *touchpad = litest_current_device();
+	struct libinput *li = touchpad->libinput;
+	_destroy_(litest_device) *trackpoint = litest_add_device(li, LITEST_TRACKPOINT);
+
+	topbutton_setup(touchpad, trackpoint);
+	libinput_device_config_click_lock_set_threshold(trackpoint->libinput_device,
+							2.0);
+
+	/* The other finger needs some motion history, that motion stays
+	 * within the threshold */
+	litest_touch_down(touchpad, 0, 5, 5);
+	clickpad_click(touchpad, true);
+	litest_touch_down(touchpad, 1, 30, 60);
+	litest_touch_move_to(touchpad, 1, 30, 60, 31, 60, 10);
+	litest_timeout_click_lock(li);
+
+	/* The top button release and the other finger's motion in one
+	 * frame */
+	litest_push_event_frame(touchpad);
+	litest_touch_move(touchpad, 1, 36, 60);
+	litest_button_click(touchpad, BTN_LEFT, false);
+	litest_pop_event_frame(touchpad);
+	litest_dispatch(li);
+	litest_touch_up(touchpad, 1);
+	litest_touch_up(touchpad, 0);
+
+	topbutton_assert_button_event(li,
+				      trackpoint->libinput_device,
+				      BTN_LEFT,
+				      LIBINPUT_BUTTON_STATE_PRESSED);
+	litest_drain_events_of_type(li, LIBINPUT_EVENT_POINTER_MOTION);
+	topbutton_assert_button_event(li,
+				      trackpoint->libinput_device,
+				      BTN_LEFT,
+				      LIBINPUT_BUTTON_STATE_RELEASED);
+	litest_assert_empty_queue(li);
+}
+END_TEST
+
+START_TEST(click_lock_topbutton_unlocked_by_touchpad)
+{
+	struct litest_device *touchpad = litest_current_device();
+	struct libinput *li = touchpad->libinput;
+	_destroy_(litest_device) *trackpoint = litest_add_device(li, LITEST_TRACKPOINT);
+
+	topbutton_setup(touchpad, trackpoint);
+
+	clickpad_click_at(touchpad, 5, 5, true);
+	topbutton_assert_button_event(li,
+				      trackpoint->libinput_device,
+				      BTN_LEFT,
+				      LIBINPUT_BUTTON_STATE_PRESSED);
+	litest_assert_empty_queue(li);
+
+	/* A click on the touchpad releases the trackpoint's lock and is not
+	 * a click of its own */
+	clickpad_click_at(touchpad, 50, 50, false);
+	topbutton_assert_button_event(li,
+				      trackpoint->libinput_device,
+				      BTN_LEFT,
+				      LIBINPUT_BUTTON_STATE_RELEASED);
+	litest_assert_empty_queue(li);
+
+	/* The next click is a normal one, the timeout is out of its reach */
+	libinput_device_config_click_lock_set_timeout(touchpad->libinput_device, 10000);
+	clickpad_click_at(touchpad, 50, 50, false);
+	topbutton_assert_button_event(li,
+				      touchpad->libinput_device,
+				      BTN_LEFT,
+				      LIBINPUT_BUTTON_STATE_PRESSED);
+	topbutton_assert_button_event(li,
+				      touchpad->libinput_device,
+				      BTN_LEFT,
+				      LIBINPUT_BUTTON_STATE_RELEASED);
+	litest_assert_empty_queue(li);
+}
+END_TEST
+
+START_TEST(click_lock_touchpad_unlocked_by_topbutton)
+{
+	struct litest_device *touchpad = litest_current_device();
+	struct libinput *li = touchpad->libinput;
+	_destroy_(litest_device) *trackpoint = litest_add_device(li, LITEST_TRACKPOINT);
+
+	topbutton_setup(touchpad, trackpoint);
+
+	clickpad_click_at(touchpad, 50, 50, true);
+	topbutton_assert_button_event(li,
+				      touchpad->libinput_device,
+				      BTN_LEFT,
+				      LIBINPUT_BUTTON_STATE_PRESSED);
+	litest_assert_empty_queue(li);
+
+	clickpad_click_at(touchpad, 5, 5, false);
+	topbutton_assert_button_event(li,
+				      touchpad->libinput_device,
+				      BTN_LEFT,
+				      LIBINPUT_BUTTON_STATE_RELEASED);
+	litest_assert_empty_queue(li);
+
+	/* The trackpoint's own buttons too */
+	clickpad_click_at(touchpad, 50, 50, true);
+	topbutton_assert_button_event(li,
+				      touchpad->libinput_device,
+				      BTN_LEFT,
+				      LIBINPUT_BUTTON_STATE_PRESSED);
+	click(trackpoint, BTN_LEFT);
+	topbutton_assert_button_event(li,
+				      touchpad->libinput_device,
+				      BTN_LEFT,
+				      LIBINPUT_BUTTON_STATE_RELEASED);
+	litest_assert_empty_queue(li);
+}
+END_TEST
+
+START_TEST(click_lock_trackpoint_releases_touchpad_tap_drag_lock)
+{
+	struct litest_device *touchpad = litest_current_device();
+	struct libinput *li = touchpad->libinput;
+	_destroy_(litest_device) *trackpoint = litest_add_device(li, LITEST_TRACKPOINT);
+
+	litest_enable_tap(touchpad->libinput_device);
+	litest_enable_drag_lock_sticky(touchpad->libinput_device);
+	litest_disable_hold_gestures(touchpad->libinput_device);
+	click_lock_setup(touchpad, BTN_LEFT);
+	click_lock_setup(trackpoint, BTN_LEFT);
+
+	litest_touch_down(touchpad, 0, 50, 50);
+	litest_touch_up(touchpad, 0);
+	litest_touch_down(touchpad, 0, 50, 50);
+	litest_timeout_tap(li);
+	litest_assert_button_event(li, BTN_LEFT, LIBINPUT_BUTTON_STATE_PRESSED);
+	litest_touch_up(touchpad, 0);
+	litest_timeout_tapndrag(li);
+	litest_assert_empty_queue(li);
+
+	/* The paired trackpoint's button releases the touchpad's drag lock
+	 * first, then its press comes through and can lock */
+	litest_button_click_debounced(trackpoint, li, BTN_LEFT, true);
+	topbutton_assert_button_event(li,
+				      touchpad->libinput_device,
+				      BTN_LEFT,
+				      LIBINPUT_BUTTON_STATE_RELEASED);
+	topbutton_assert_button_event(li,
+				      trackpoint->libinput_device,
+				      BTN_LEFT,
+				      LIBINPUT_BUTTON_STATE_PRESSED);
+	litest_assert_empty_queue(li);
+	litest_timeout_click_lock(li);
+	litest_button_click_debounced(trackpoint, li, BTN_LEFT, false);
+	litest_assert_empty_queue(li);
+
+	click(trackpoint, BTN_LEFT);
+	topbutton_assert_button_event(li,
+				      trackpoint->libinput_device,
+				      BTN_LEFT,
+				      LIBINPUT_BUTTON_STATE_RELEASED);
+	litest_assert_empty_queue(li);
+}
+END_TEST
+
+START_TEST(click_lock_trackpoint_releases_touchpad_3fg_drag)
+{
+	struct litest_device *touchpad = litest_current_device();
+	struct libinput *li = touchpad->libinput;
+	_destroy_(litest_device) *trackpoint = litest_add_device(li, LITEST_TRACKPOINT);
+
+	if (litest_slot_count(touchpad) < 3 ||
+	    libinput_device_config_3fg_drag_get_finger_count(
+		    touchpad->libinput_device) < 3)
+		return LITEST_NOT_APPLICABLE;
+
+	litest_enable_3fg_drag(touchpad->libinput_device, 3);
+	litest_disable_tap(touchpad->libinput_device);
+	litest_disable_hold_gestures(touchpad->libinput_device);
+	click_lock_setup(touchpad, BTN_LEFT);
+	click_lock_setup(trackpoint, BTN_LEFT);
+
+	double y = 30.0;
+	for (int i = 0; i < 3; i++)
+		litest_touch_down(touchpad, i, 40 + i * 5, y);
+	litest_dispatch(li);
+	while (y < 50.0) {
+		y += 2;
+		for (int i = 0; i < 3; i++) {
+			litest_touch_move(touchpad, i, 40 + i * 5, y);
+			if (i == 0)
+				litest_timeout_3fg_drag_or_swipe(li);
+		}
+		litest_dispatch(li);
+	}
+
+	litest_drain_events_of_type(li,
+				    LIBINPUT_EVENT_GESTURE_SWIPE_BEGIN,
+				    LIBINPUT_EVENT_GESTURE_SWIPE_UPDATE,
+				    LIBINPUT_EVENT_GESTURE_SWIPE_END);
+	litest_assert_button_event(li, BTN_LEFT, LIBINPUT_BUTTON_STATE_PRESSED);
+	litest_drain_events_of_type(li, LIBINPUT_EVENT_POINTER_MOTION);
+	litest_assert_empty_queue(li);
+
+	/* A short click of the paired trackpoint's button, the timeout is
+	 * out of its reach */
+	libinput_device_config_click_lock_set_timeout(trackpoint->libinput_device,
+						      10000);
+	litest_button_click_debounced(trackpoint, li, BTN_LEFT, true);
+	topbutton_assert_button_event(li,
+				      touchpad->libinput_device,
+				      BTN_LEFT,
+				      LIBINPUT_BUTTON_STATE_RELEASED);
+	topbutton_assert_button_event(li,
+				      trackpoint->libinput_device,
+				      BTN_LEFT,
+				      LIBINPUT_BUTTON_STATE_PRESSED);
+	litest_button_click_debounced(trackpoint, li, BTN_LEFT, false);
+	topbutton_assert_button_event(li,
+				      trackpoint->libinput_device,
+				      BTN_LEFT,
+				      LIBINPUT_BUTTON_STATE_RELEASED);
+
+	for (int i = 0; i < 3; i++)
+		litest_touch_up(touchpad, i);
+	litest_dispatch(li);
+	litest_assert_empty_queue(li);
+}
+END_TEST
+
+START_TEST(click_lock_two_touchpads_one_trackpoint)
+{
+	struct litest_device *touchpad = litest_current_device();
+	struct libinput *li = touchpad->libinput;
+	_destroy_(litest_device) *trackpoint = litest_add_device(li, LITEST_TRACKPOINT);
+
+	click_lock_setup(touchpad, BTN_LEFT);
+	click_lock_setup(trackpoint, BTN_LEFT);
+
+	hold(touchpad, BTN_LEFT);
+	assert_locked(li, BTN_LEFT);
+	click(trackpoint, BTN_LEFT);
+	assert_released(li, BTN_LEFT);
+
+	/* A second touchpad pairs with the same trackpoint and goes away
+	 * again. The trackpoint stays the other half of the first one. */
+	struct litest_device *other = litest_add_device(li, LITEST_SYNAPTICS_TOUCHPAD);
+	click_lock_setup(other, BTN_LEFT);
+
+	hold(touchpad, BTN_LEFT);
+	assert_locked(li, BTN_LEFT);
+	click(trackpoint, BTN_LEFT);
+	assert_released(li, BTN_LEFT);
+
+	/* and is not the other half of the second one */
+	hold(other, BTN_LEFT);
+	assert_locked(li, BTN_LEFT);
+	short_click(trackpoint, BTN_LEFT);
+	assert_click(li, BTN_LEFT);
+	click(other, BTN_LEFT);
+	assert_released(li, BTN_LEFT);
+
+	litest_device_destroy(other);
+	litest_drain_events(li);
+
+	hold(touchpad, BTN_LEFT);
+	assert_locked(li, BTN_LEFT);
+	click(trackpoint, BTN_LEFT);
+	assert_released(li, BTN_LEFT);
+}
+END_TEST
+
+START_TEST(click_lock_second_touchpad_takes_over)
+{
+	_litest_context_destroy_ struct libinput *li = litest_create_context();
+	struct litest_device *first = litest_add_device(li, LITEST_SYNAPTICS_TOUCHPAD);
+	_destroy_(litest_device) *trackpoint = litest_add_device(li, LITEST_TRACKPOINT);
+	_destroy_(litest_device) *second =
+		litest_add_device(li, LITEST_SYNAPTICS_TOUCHPAD);
+
+	click_lock_setup(trackpoint, BTN_LEFT);
+	click_lock_setup(second, BTN_LEFT);
+
+	/* The first touchpad was the trackpoint's other half. With it
+	 * gone, the remaining touchpad and the trackpoint are one device. */
+	litest_device_destroy(first);
+	litest_drain_events(li);
+
+	hold(second, BTN_LEFT);
+	assert_locked(li, BTN_LEFT);
+	click(trackpoint, BTN_LEFT);
+	assert_released(li, BTN_LEFT);
+
+	hold(trackpoint, BTN_LEFT);
+	assert_locked(li, BTN_LEFT);
+	click(second, BTN_LEFT);
+	assert_released(li, BTN_LEFT);
+}
+END_TEST
+
 TEST_COLLECTION(click_lock)
 {
 	/* clang-format off */
@@ -2282,5 +2612,15 @@ TEST_COLLECTION(click_lock)
 	litest_add_for_device(click_lock_touchpad_tap_drag_other_button, LITEST_SYNAPTICS_TOUCHPAD);
 	litest_add_for_device(click_lock_touchpad_3fg_drag_released, LITEST_SYNAPTICS_RMI4);
 	litest_add_for_device(click_lock_topbutton_suspend_releases, LITEST_SYNAPTICS_TOPBUTTONPAD);
+
+	litest_add_for_device(click_lock_topbutton_touchpad_motion, LITEST_SYNAPTICS_TOPBUTTONPAD);
+	litest_add_for_device(click_lock_topbutton_touchpad_motion_in_release_frame, LITEST_SYNAPTICS_TOPBUTTONPAD);
+	litest_add_for_device(click_lock_topbutton_unlocked_by_touchpad, LITEST_SYNAPTICS_TOPBUTTONPAD);
+	litest_add_for_device(click_lock_touchpad_unlocked_by_topbutton, LITEST_SYNAPTICS_TOPBUTTONPAD);
+	litest_add_for_device(click_lock_trackpoint_releases_touchpad_tap_drag_lock, LITEST_SYNAPTICS_TOUCHPAD);
+	litest_add_for_device(click_lock_trackpoint_releases_touchpad_tap_drag_lock, LITEST_SYNAPTICS_TOPBUTTONPAD);
+	litest_add_for_device(click_lock_trackpoint_releases_touchpad_3fg_drag, LITEST_SYNAPTICS_RMI4);
+	litest_add_for_device(click_lock_two_touchpads_one_trackpoint, LITEST_SYNAPTICS_TOUCHPAD);
+	litest_add_no_device(click_lock_second_touchpad_takes_over);
 	/* clang-format on */
 }

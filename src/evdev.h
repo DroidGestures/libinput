@@ -324,6 +324,9 @@ struct evdev_device {
 		void (*release_drags)(struct evdev_device *device,
 				      usec_t time,
 				      evdev_usage_t button);
+		/* A touchpad's trackpoint and vice versa, they count as one
+		 * device for click lock */
+		struct evdev_device *paired;
 	} click_lock;
 };
 
@@ -712,11 +715,25 @@ evdev_click_lock_cancel_hold(struct evdev_device *device);
 void
 evdev_click_lock_forget_buttons(struct evdev_device *device);
 
+void
+evdev_click_lock_pair(struct evdev_device *touchpad, struct evdev_device *trackpoint);
+
+void
+evdev_click_lock_pair_instead_of(struct evdev_device *touchpad,
+				 struct evdev_device *trackpoint,
+				 struct evdev_device *removed);
+
+void
+evdev_click_lock_unpair(struct evdev_device *device);
+
 /* Whether motion of this device can end a hold */
 static inline bool
 evdev_click_lock_wants_motion(const struct evdev_device *device)
 {
-	return device->click_lock.state == CLICK_LOCK_PENDING;
+	const struct evdev_device *paired = device->click_lock.paired;
+
+	return device->click_lock.state == CLICK_LOCK_PENDING ||
+	       (paired && paired->click_lock.state == CLICK_LOCK_PENDING);
 }
 
 /* A locked button is logically down: config changes that wait until all
