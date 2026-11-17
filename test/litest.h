@@ -1542,6 +1542,47 @@ litest_disable_tap_drag(struct libinput_device *device)
 	litest_assert_int_eq(status, expected);
 }
 
+static inline void
+litest_disable_multi_finger_tap_drag(struct libinput_device *device)
+{
+	enum libinput_config_status status, expected;
+
+	expected = LIBINPUT_CONFIG_STATUS_SUCCESS;
+	status = libinput_device_config_tap_set_multi_finger_drag_enabled(
+		device,
+		LIBINPUT_CONFIG_MULTI_FINGER_DRAG_SINGLE_FINGER_ONLY);
+
+	litest_assert_int_eq(status, expected);
+}
+
+static inline void
+litest_enable_multi_finger_tap_drag_single_and_two_finger(
+	struct libinput_device *device)
+{
+	enum libinput_config_status status, expected;
+
+	expected = LIBINPUT_CONFIG_STATUS_SUCCESS;
+	status = libinput_device_config_tap_set_multi_finger_drag_enabled(
+		device,
+		LIBINPUT_CONFIG_MULTI_FINGER_DRAG_SINGLE_AND_TWO_FINGER);
+
+	litest_assert_int_eq(status, expected);
+}
+
+static inline void
+litest_enable_multi_finger_tap_drag_single_two_three_finger(
+	struct libinput_device *device)
+{
+	enum libinput_config_status status, expected;
+
+	expected = LIBINPUT_CONFIG_STATUS_SUCCESS;
+	status = libinput_device_config_tap_set_multi_finger_drag_enabled(
+		device,
+		LIBINPUT_CONFIG_MULTI_FINGER_DRAG_SINGLE_TWO_THREE_FINGER);
+
+	litest_assert_int_eq(status, expected);
+}
+
 static inline bool
 litest_has_2fg_scroll(struct litest_device *dev)
 {

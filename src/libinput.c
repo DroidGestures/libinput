@@ -4140,6 +4140,42 @@ libinput_device_config_tap_get_default_drag_enabled(struct libinput_device *devi
 }
 
 LIBINPUT_EXPORT enum libinput_config_status
+libinput_device_config_tap_set_multi_finger_drag_enabled(
+	struct libinput_device *device,
+	enum libinput_config_multi_finger_drag_state enable)
+{
+	if (enable != LIBINPUT_CONFIG_MULTI_FINGER_DRAG_SINGLE_FINGER_ONLY &&
+	    enable != LIBINPUT_CONFIG_MULTI_FINGER_DRAG_SINGLE_AND_TWO_FINGER &&
+	    enable != LIBINPUT_CONFIG_MULTI_FINGER_DRAG_SINGLE_TWO_THREE_FINGER)
+		return LIBINPUT_CONFIG_STATUS_INVALID;
+
+	if (libinput_device_config_tap_get_finger_count(device) == 0)
+		return enable == 1 ? LIBINPUT_CONFIG_STATUS_SUCCESS
+				   : LIBINPUT_CONFIG_STATUS_UNSUPPORTED;
+
+	return device->config.tap->set_multi_finger_drag_enabled(device, enable);
+}
+
+LIBINPUT_EXPORT enum libinput_config_multi_finger_drag_state
+libinput_device_config_tap_get_multi_finger_drag_enabled(struct libinput_device *device)
+{
+	if (libinput_device_config_tap_get_finger_count(device) == 0)
+		return LIBINPUT_CONFIG_MULTI_FINGER_DRAG_SINGLE_FINGER_ONLY;
+
+	return device->config.tap->get_multi_finger_drag_enabled(device);
+}
+
+LIBINPUT_EXPORT enum libinput_config_multi_finger_drag_state
+libinput_device_config_tap_get_default_multi_finger_drag_enabled(
+	struct libinput_device *device)
+{
+	if (libinput_device_config_tap_get_finger_count(device) == 0)
+		return LIBINPUT_CONFIG_MULTI_FINGER_DRAG_SINGLE_FINGER_ONLY;
+
+	return device->config.tap->get_default_multi_finger_drag_enabled(device);
+}
+
+LIBINPUT_EXPORT enum libinput_config_status
 libinput_device_config_tap_set_drag_lock_enabled(
 	struct libinput_device *device,
 	enum libinput_config_drag_lock_state enable)
