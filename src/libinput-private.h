@@ -496,6 +496,34 @@ struct libinput_device_config_rotation {
 	unsigned int (*get_default_angle)(struct libinput_device *device);
 };
 
+struct libinput_device_config_click_lock {
+	uint32_t (*get_modes)(struct libinput_device *device);
+	enum libinput_config_status (*set_mode)(
+		struct libinput_device *device,
+		enum libinput_config_click_lock_mode mode);
+	enum libinput_config_click_lock_mode (*get_mode)(
+		struct libinput_device *device);
+	enum libinput_config_click_lock_mode (*get_default_mode)(
+		struct libinput_device *device);
+	enum libinput_config_status (*set_timeout)(struct libinput_device *device,
+						   usec_t timeout);
+	usec_t (*get_timeout)(struct libinput_device *device);
+	usec_t (*get_default_timeout)(struct libinput_device *device);
+	enum libinput_config_status (*set_buttons)(struct libinput_device *device,
+						   const uint32_t *buttons,
+						   size_t nbuttons);
+	size_t (*get_buttons)(struct libinput_device *device,
+			      uint32_t *buttons,
+			      size_t nbuttons);
+	size_t (*get_default_buttons)(struct libinput_device *device,
+				      uint32_t *buttons,
+				      size_t nbuttons);
+	enum libinput_config_status (*set_threshold)(struct libinput_device *device,
+						     double mm);
+	double (*get_threshold)(struct libinput_device *device);
+	double (*get_default_threshold)(struct libinput_device *device);
+};
+
 struct libinput_device_config_gesture {
 	enum libinput_config_status (*set_hold_enabled)(
 		struct libinput_device *device,
@@ -522,6 +550,7 @@ struct libinput_device_config {
 	struct libinput_device_config_rotation *rotation;
 	struct libinput_device_config_gesture *gesture;
 	struct libinput_device_config_3fg_drag *drag_3fg;
+	struct libinput_device_config_click_lock *click_lock;
 };
 
 struct libinput_device_group {

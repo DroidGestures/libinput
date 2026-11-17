@@ -1391,6 +1391,8 @@ _litest_timeout(struct libinput *li, const char *func, int lineno, int millis);
 #define litest_timeout_3fg_drag_or_swipe(li_) litest_timeout(li_, 90)
 #define litest_timeout_3fg_drag(li_) litest_timeout(li_, 800)
 #define litest_timeout_eraser_button(li_) litest_timeout(li_, 50)
+/* For the click lock timeout of 200ms set by litest_enable_click_lock() */
+#define litest_timeout_click_lock(li_) litest_timeout(li_, 250)
 
 struct litest_logcapture {
 	char **errors;
@@ -1718,6 +1720,39 @@ litest_disable_middleemu(struct litest_device *dev)
 		LIBINPUT_CONFIG_MIDDLE_EMULATION_DISABLED);
 
 	litest_assert_int_eq(status, expected);
+}
+
+static inline void
+litest_enable_click_lock(struct litest_device *dev,
+			 const uint32_t *buttons,
+			 size_t nbuttons)
+{
+	struct libinput_device *device = dev->libinput_device;
+	enum libinput_config_status status;
+
+	/* Short, so tests don't wait longer than needed */
+	status = libinput_device_config_click_lock_set_timeout(device, 200);
+	litest_assert_enum_eq(status, LIBINPUT_CONFIG_STATUS_SUCCESS);
+	status = libinput_device_config_click_lock_set_buttons(device,
+							       buttons,
+							       nbuttons);
+	litest_assert_enum_eq(status, LIBINPUT_CONFIG_STATUS_SUCCESS);
+	status = libinput_device_config_click_lock_set_mode(
+		device,
+		LIBINPUT_CONFIG_CLICK_LOCK_TIMEOUT);
+	litest_assert_enum_eq(status, LIBINPUT_CONFIG_STATUS_SUCCESS);
+}
+
+static inline void
+litest_disable_click_lock(struct litest_device *dev)
+{
+	struct libinput_device *device = dev->libinput_device;
+	enum libinput_config_status status;
+
+	status = libinput_device_config_click_lock_set_mode(
+		device,
+		LIBINPUT_CONFIG_CLICK_LOCK_DISABLED);
+	litest_assert_enum_eq(status, LIBINPUT_CONFIG_STATUS_SUCCESS);
 }
 
 static inline void

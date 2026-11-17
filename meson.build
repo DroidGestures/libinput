@@ -430,6 +430,7 @@ src_libinput = src_libfilter + [
 	'src/evdev-fallback.c',
 	'src/evdev-plugin.c',
 	'src/evdev-totem.c',
+	'src/evdev-click-lock.c',
 	'src/evdev-middle-button.c',
 	'src/evdev-mt-touchpad.c',
 	'src/evdev-mt-touchpad-tap.c',
@@ -1073,6 +1074,7 @@ if get_option('tests')
 		'test/test-touchpad.c',
 		'test/test-touchpad-tap.c',
 		'test/test-touchpad-buttons.c',
+		'test/test-click-lock.c',
 		'test/test-trackpoint.c',
 		'test/test-trackball.c',
 		'test/test-misc.c',
@@ -1099,6 +1101,7 @@ if get_option('tests')
 	# When adding new TEST_COLLECTION() macros, add to this list and the CI
 	# $ git grep TEST_COLLECTION test/test-* | sed -e "s|.*TEST_COLLECTION(\(.*\))|\t\t'\1',|" | sort
 	collections = [
+		'click_lock',
 		'device',
 		'gestures',
 		'keyboard',

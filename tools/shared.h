@@ -62,6 +62,10 @@ enum configuration_options {
 	OPT_SCROLL_BUTTON,
 	OPT_SCROLL_BUTTON_LOCK_ENABLE,
 	OPT_SCROLL_BUTTON_LOCK_DISABLE,
+	OPT_CLICK_LOCK_MODE,
+	OPT_CLICK_LOCK_TIMEOUT,
+	OPT_CLICK_LOCK_BUTTONS,
+	OPT_CLICK_LOCK_THRESHOLD,
 	OPT_SPEED,
 	OPT_PROFILE,
 	OPT_DISABLE_SENDEVENTS,
@@ -109,6 +113,10 @@ enum configuration_options {
 	{ "set-clickfinger-map",       required_argument, 0, OPT_CLICKFINGER_MAP }, \
 	{ "set-scroll-method",         required_argument, 0, OPT_SCROLL_METHOD }, \
 	{ "set-scroll-button",         required_argument, 0, OPT_SCROLL_BUTTON }, \
+	{ "set-click-lock-mode",       required_argument, 0, OPT_CLICK_LOCK_MODE }, \
+	{ "set-click-lock-timeout",    required_argument, 0, OPT_CLICK_LOCK_TIMEOUT }, \
+	{ "set-click-lock-buttons",    required_argument, 0, OPT_CLICK_LOCK_BUTTONS }, \
+	{ "set-click-lock-threshold",  required_argument, 0, OPT_CLICK_LOCK_THRESHOLD }, \
 	{ "set-profile",               required_argument, 0, OPT_PROFILE }, \
 	{ "set-tap-map",               required_argument, 0, OPT_TAP_MAP }, \
 	{ "set-speed",                 required_argument, 0, OPT_SPEED },\
@@ -165,6 +173,11 @@ struct tools_options {
 	enum libinput_config_tap_button_map tap_map;
 	int scroll_button;
 	int scroll_button_lock;
+	enum libinput_config_click_lock_mode click_lock_mode;
+	int click_lock_timeout;
+	uint32_t click_lock_buttons[32];
+	int click_lock_nbuttons; /* -1 if not set */
+	double click_lock_threshold;
 	double speed;
 	int dwt;
 	int dwtp;

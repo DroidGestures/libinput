@@ -211,6 +211,24 @@ tp_has_pending_pointer_motion(struct tp_dispatch *tp,
 	return !device_float_is_zero(raw);
 }
 
+/* The distance the pointer-moving touches travelled in this frame, for
+ * the click lock motion threshold. Called before the frame's buttons are
+ * posted, the pointer motion itself is posted after them. */
+void
+tp_gesture_handle_click_lock_motion(struct tp_dispatch *tp, usec_t time)
+{
+	struct device_float_coords raw;
+
+	if (!evdev_click_lock_wants_motion(tp->device))
+		return;
+
+	if (tp_has_pending_pointer_motion(tp, time, &raw)) {
+		struct phys_coords mm = tp_phys_delta(tp, raw);
+
+		evdev_click_lock_handle_motion(tp->device, &mm);
+	}
+}
+
 static void
 tp_gesture_post_pointer_motion(struct tp_dispatch *tp, usec_t time)
 {
@@ -1154,10 +1172,10 @@ tp_gesture_handle_event_on_state_3fg_drag(struct tp_dispatch *tp,
 		break;
 	case GESTURE_EVENT_CANCEL:
 		/* If the gesture is cancelled we release the button immediately */
-		evdev_pointer_notify_button(tp->device,
-					    tp->gesture.drag_3fg_release_time,
-					    evdev_usage_from(EVDEV_BTN_LEFT),
-					    LIBINPUT_BUTTON_STATE_RELEASED);
+		evdev_pointer_notify_gesture_button(tp->device,
+						    tp->gesture.drag_3fg_release_time,
+						    evdev_usage_from(EVDEV_BTN_LEFT),
+						    LIBINPUT_BUTTON_STATE_RELEASED);
 		tp->gesture.state = GESTURE_STATE_NONE;
 		break;
 	case GESTURE_EVENT_END:
@@ -1168,10 +1186,11 @@ tp_gesture_handle_event_on_state_3fg_drag(struct tp_dispatch *tp,
 		break;
 	case GESTURE_EVENT_FINGER_SWITCH_TIMEOUT:
 		if (tp->gesture.finger_count_pending < 2) {
-			evdev_pointer_notify_button(tp->device,
-						    tp->gesture.drag_3fg_release_time,
-						    evdev_usage_from(EVDEV_BTN_LEFT),
-						    LIBINPUT_BUTTON_STATE_RELEASED);
+			evdev_pointer_notify_gesture_button(
+				tp->device,
+				tp->gesture.drag_3fg_release_time,
+				evdev_usage_from(EVDEV_BTN_LEFT),
+				LIBINPUT_BUTTON_STATE_RELEASED);
 			tp->gesture.state = GESTURE_STATE_NONE;
 		}
 		break;
@@ -1206,10 +1225,10 @@ tp_gesture_handle_event_on_state_3fg_drag_released(struct tp_dispatch *tp,
 	case GESTURE_EVENT_3FG_DRAG_RELEASE_TIMEOUT:
 		libinput_timer_cancel(&tp->gesture.drag_3fg_timer);
 		libinput_timer_cancel(&tp->gesture.finger_count_switch_timer);
-		evdev_pointer_notify_button(tp->device,
-					    tp->gesture.drag_3fg_release_time,
-					    evdev_usage_from(EVDEV_BTN_LEFT),
-					    LIBINPUT_BUTTON_STATE_RELEASED);
+		evdev_pointer_notify_gesture_button(tp->device,
+						    tp->gesture.drag_3fg_release_time,
+						    evdev_usage_from(EVDEV_BTN_LEFT),
+						    LIBINPUT_BUTTON_STATE_RELEASED);
 		tp->gesture.state = GESTURE_STATE_NONE;
 		break;
 	case GESTURE_EVENT_FINGER_SWITCH_TIMEOUT:
@@ -1223,10 +1242,10 @@ tp_gesture_handle_event_on_state_3fg_drag_released(struct tp_dispatch *tp,
 		break;
 	case GESTURE_EVENT_POINTER_MOTION_START:
 		libinput_timer_cancel(&tp->gesture.drag_3fg_timer);
-		evdev_pointer_notify_button(tp->device,
-					    tp->gesture.drag_3fg_release_time,
-					    evdev_usage_from(EVDEV_BTN_LEFT),
-					    LIBINPUT_BUTTON_STATE_RELEASED);
+		evdev_pointer_notify_gesture_button(tp->device,
+						    tp->gesture.drag_3fg_release_time,
+						    evdev_usage_from(EVDEV_BTN_LEFT),
+						    LIBINPUT_BUTTON_STATE_RELEASED);
 		tp->gesture.state = GESTURE_STATE_POINTER_MOTION;
 		break;
 	case GESTURE_EVENT_HOLD_AND_MOTION_START:
@@ -1237,10 +1256,10 @@ tp_gesture_handle_event_on_state_3fg_drag_released(struct tp_dispatch *tp,
 	 * will be continue the current 3fg drag gesture */
 	case GESTURE_EVENT_SCROLL_START:
 		libinput_timer_cancel(&tp->gesture.drag_3fg_timer);
-		evdev_pointer_notify_button(tp->device,
-					    tp->gesture.drag_3fg_release_time,
-					    evdev_usage_from(EVDEV_BTN_LEFT),
-					    LIBINPUT_BUTTON_STATE_RELEASED);
+		evdev_pointer_notify_gesture_button(tp->device,
+						    tp->gesture.drag_3fg_release_time,
+						    evdev_usage_from(EVDEV_BTN_LEFT),
+						    LIBINPUT_BUTTON_STATE_RELEASED);
 		tp->gesture.state = GESTURE_STATE_SCROLL_START;
 		break;
 	case GESTURE_EVENT_SWIPE_START:
@@ -1863,10 +1882,10 @@ tp_gesture_handle_state_pinch(struct tp_dispatch *tp, usec_t time)
 static void
 tp_gesture_handle_state_3fg_drag_start(struct tp_dispatch *tp, usec_t time)
 {
-	evdev_pointer_notify_button(tp->device,
-				    time,
-				    evdev_usage_from(EVDEV_BTN_LEFT),
-				    LIBINPUT_BUTTON_STATE_PRESSED);
+	evdev_pointer_notify_gesture_button(tp->device,
+					    time,
+					    evdev_usage_from(EVDEV_BTN_LEFT),
+					    LIBINPUT_BUTTON_STATE_PRESSED);
 	/* FIXME: immediately send a motion event? */
 	tp->gesture.state = GESTURE_STATE_3FG_DRAG;
 }
@@ -2184,6 +2203,23 @@ tp_gesture_cancel_motion_gestures(struct tp_dispatch *tp, usec_t time)
 	case GESTURE_STATE_3FG_DRAG_OR_SWIPE_START:
 		evdev_log_debug(tp->device, "Cancelling motion gestures\n");
 		tp_gesture_cancel(tp, time);
+		break;
+	}
+}
+
+/* Release the button of a three-finger drag, also during its drag lock */
+void
+tp_gesture_release_3fg_drag(struct tp_dispatch *tp, usec_t time)
+{
+	switch (tp->gesture.state) {
+	case GESTURE_STATE_3FG_DRAG:
+		tp->gesture.drag_3fg_release_time = time;
+		tp_gesture_cancel(tp, time);
+		break;
+	case GESTURE_STATE_3FG_DRAG_RELEASED:
+		tp_gesture_cancel(tp, time);
+		break;
+	default:
 		break;
 	}
 }

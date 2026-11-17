@@ -759,7 +759,7 @@ vm-pointer:
   extends:
     - .fedora:43@test-suite-vm
   variables:
-    SUITE_NAMES: 'pointer'
+    SUITE_NAMES: 'pointer click_lock'
 
 vm-pointer-no-libwacom:
   extends:
@@ -1176,6 +1176,7 @@ check-test-suites:
         libinput-test-suite-totem
         libinput-test-suite-touch
         libinput-test-suite-pointer
+        libinput-test-suite-click_lock
         libinput-test-suite-lua
       EOF
     - sort -o ci-testsuites ci-testsuites

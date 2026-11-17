@@ -191,6 +191,15 @@ fallback_flush_relative_motion(struct fallback_dispatch *dispatch,
 	dispatch->rel.x = 0;
 	dispatch->rel.y = 0;
 
+	if (evdev_click_lock_wants_motion(device)) {
+		/* Without a resolution we assume 1000dpi, like the accel code */
+		struct phys_coords mm = {
+			.x = raw.x * 25.4 / device->dpi,
+			.y = raw.y * 25.4 / device->dpi,
+		};
+		evdev_click_lock_handle_motion(device, &mm);
+	}
+
 	/* Use unaccelerated deltas for pointing stick scroll */
 	if (post_button_scroll(device, raw, time))
 		return;
@@ -1273,6 +1282,12 @@ fallback_return_to_neutral_state(struct fallback_dispatch *dispatch,
 	if (usec_is_zero(time))
 		return;
 
+	/* Before the keys: a locked button is down but must not be
+	 * released twice, and a held one must not lock on its release.
+	 * Only keys that are logically down are released below, the
+	 * release of a press that click lock swallowed never comes. */
+	evdev_click_lock_release(device, time);
+	evdev_click_lock_forget_buttons(device);
 	cancel_touches(dispatch, device, NULL, time);
 	release_pressed_keys(dispatch, device, time);
 	memset(dispatch->hw_key_mask, 0, sizeof(dispatch->hw_key_mask));
@@ -1618,7 +1633,8 @@ fallback_change_to_left_handed(struct evdev_device *device)
 	if (device->left_handed.want_enabled == device->left_handed.enabled)
 		return;
 
-	if (fallback_any_button_down(dispatch, device))
+	if (fallback_any_button_down(dispatch, device) ||
+	    evdev_click_lock_is_locked(device))
 		return;
 
 	device->left_handed.enabled = device->left_handed.want_enabled;
@@ -1634,7 +1650,8 @@ fallback_change_scroll_method(struct evdev_device *device)
 	    device->scroll.want_lock_enabled == device->scroll.lock_enabled)
 		return;
 
-	if (fallback_any_button_down(dispatch, device))
+	if (fallback_any_button_down(dispatch, device) ||
+	    evdev_click_lock_is_locked(device))
 		return;
 
 	device->scroll.method = device->scroll.want_method;
@@ -1879,6 +1896,17 @@ fallback_dispatch_create(struct libinput_device *libinput_device)
 
 		evdev_init_middlebutton(device, enable_by_default, want_config);
 	}
+
+	/* The motion threshold needs relative motion, and only relative
+	 * motion: a device that can also move the pointer through absolute
+	 * axes, e.g. a virtual machine's mouse, would lock at the end of
+	 * a drag that click lock never saw */
+	if (libevdev_has_event_code(device->evdev, EV_KEY, BTN_LEFT) &&
+	    libevdev_has_event_code(device->evdev, EV_REL, REL_X) &&
+	    libevdev_has_event_code(device->evdev, EV_REL, REL_Y) &&
+	    !libevdev_has_event_code(device->evdev, EV_ABS, ABS_X) &&
+	    !libevdev_has_event_code(device->evdev, EV_ABS, ABS_Y))
+		evdev_init_click_lock(device);
 
 	fallback_init_arbitration(dispatch, device);
 

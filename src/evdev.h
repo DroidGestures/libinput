@@ -161,6 +161,23 @@ enum evdev_debounce_state {
 	DEBOUNCE_ACTIVE,
 };
 
+enum evdev_click_lock_state {
+	CLICK_LOCK_IDLE,
+	CLICK_LOCK_PENDING,   /* button held */
+	CLICK_LOCK_LOCKED,    /* physical release swallowed */
+	CLICK_LOCK_UNLOCKING, /* unlocking press swallowed, still down */
+};
+
+/* Where a button event comes from. Each source has its own press and
+ * release, e.g. a tap can overlap a physical button of the same code. */
+enum evdev_click_lock_source {
+	CLICK_LOCK_SOURCE_BUTTON,  /* physical, clickpad and software buttons */
+	CLICK_LOCK_SOURCE_GESTURE, /* tapping, three-finger drag */
+};
+
+/* How many different buttons can be configured to lock */
+#define CLICK_LOCK_MAX_BUTTONS 32
+
 enum evdev_arbitration_state {
 	ARBITRATION_NOT_ACTIVE,
 	ARBITRATION_IGNORE_ALL,
@@ -282,6 +299,35 @@ struct evdev_device {
 		uint32_t button_mask;
 		usec_t first_event_time;
 	} middlebutton;
+
+	struct {
+		struct libinput_device_config_click_lock config;
+		/* Config changes apply immediately, no want_* */
+		enum libinput_config_click_lock_mode mode;
+		/* evdev codes of the buttons that can lock */
+		uint32_t buttons[CLICK_LOCK_MAX_BUTTONS];
+		size_t nbuttons;
+		usec_t timeout;
+		double threshold; /* mm */
+
+		enum evdev_click_lock_state state;
+		/* The button that is held or locked. When unlocking, the
+		 * button of the swallowed press and where that press came
+		 * from, so that a tap in between does not take the release
+		 * of a physical button. */
+		evdev_usage_t button;
+		enum evdev_click_lock_source source;
+		usec_t deadline;          /* press time + timeout */
+		struct phys_coords moved; /* since the press */
+		/* Releases a button held by a drag or drag lock, set by
+		 * touchpads */
+		void (*release_drags)(struct evdev_device *device,
+				      usec_t time,
+				      evdev_usage_t button);
+		/* A touchpad's trackpoint and vice versa, they count as one
+		 * device for click lock */
+		struct evdev_device *paired;
+	} click_lock;
 };
 
 static inline struct evdev_device *
@@ -562,6 +608,16 @@ evdev_pointer_notify_physical_button(struct evdev_device *device,
 				     usec_t time,
 				     evdev_usage_t button,
 				     enum libinput_button_state state);
+void
+evdev_pointer_notify_gesture_button(struct evdev_device *device,
+				    usec_t time,
+				    evdev_usage_t button,
+				    enum libinput_button_state state);
+void
+evdev_pointer_post_button(struct evdev_device *device,
+			  usec_t time,
+			  evdev_usage_t button,
+			  enum libinput_button_state state);
 
 void
 evdev_init_natural_scroll(struct evdev_device *device);
@@ -635,6 +691,60 @@ evdev_middlebutton_is_available(struct libinput_device *device);
 
 enum libinput_config_middle_emulation_state
 evdev_middlebutton_get_default(struct libinput_device *device);
+
+void
+evdev_init_click_lock(struct evdev_device *device);
+
+bool
+evdev_click_lock_filter_button(struct evdev_device *device,
+			       usec_t time,
+			       evdev_usage_t button,
+			       enum libinput_button_state state,
+			       enum evdev_click_lock_source source);
+
+void
+evdev_click_lock_handle_motion(struct evdev_device *device,
+			       const struct phys_coords *delta);
+
+void
+evdev_click_lock_release(struct evdev_device *device, usec_t time);
+
+void
+evdev_click_lock_cancel_hold(struct evdev_device *device);
+
+void
+evdev_click_lock_forget_buttons(struct evdev_device *device);
+
+void
+evdev_click_lock_pair(struct evdev_device *touchpad, struct evdev_device *trackpoint);
+
+void
+evdev_click_lock_pair_instead_of(struct evdev_device *touchpad,
+				 struct evdev_device *trackpoint,
+				 struct evdev_device *removed);
+
+void
+evdev_click_lock_unpair(struct evdev_device *device);
+
+/* Whether motion of this device can end a hold */
+static inline bool
+evdev_click_lock_wants_motion(const struct evdev_device *device)
+{
+	const struct evdev_device *paired = device->click_lock.paired;
+
+	return device->click_lock.state == CLICK_LOCK_PENDING ||
+	       (paired && paired->click_lock.state == CLICK_LOCK_PENDING);
+}
+
+/* A locked button is logically down: config changes that wait until all
+ * buttons are up must wait for it too. With left-handed that also keeps
+ * the physical button that locked it the one that unlocks it without a
+ * click. */
+static inline bool
+evdev_click_lock_is_locked(const struct evdev_device *device)
+{
+	return device->click_lock.state == CLICK_LOCK_LOCKED;
+}
 
 static inline struct phys_coords
 evdev_convert_xy_to_mm(const struct evdev_device *device, int x, int y)

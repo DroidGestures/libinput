@@ -31,6 +31,7 @@
 #include <libevdev/libevdev.h>
 #include <libudev.h>
 #include <limits.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -128,6 +129,10 @@ tools_init_options(struct tools_options *options)
 	options->scroll_method = -1;
 	options->scroll_button = -1;
 	options->scroll_button_lock = -1;
+	options->click_lock_mode = -1;
+	options->click_lock_timeout = -1;
+	options->click_lock_nbuttons = -1;
+	options->click_lock_threshold = NAN;
 	options->speed = 0.0;
 	options->profile = LIBINPUT_CONFIG_ACCEL_PROFILE_NONE;
 	/* initialize accel args */
@@ -295,6 +300,77 @@ tools_parse_option(int option, const char *optarg, struct tools_options *options
 		break;
 	case OPT_SCROLL_BUTTON_LOCK_DISABLE:
 		options->scroll_button_lock = false;
+		break;
+	case OPT_CLICK_LOCK_MODE:
+		if (!optarg)
+			return 1;
+
+		if (streq(optarg, "disabled")) {
+			options->click_lock_mode = LIBINPUT_CONFIG_CLICK_LOCK_DISABLED;
+		} else if (streq(optarg, "timeout")) {
+			options->click_lock_mode = LIBINPUT_CONFIG_CLICK_LOCK_TIMEOUT;
+		} else {
+			fprintf(stderr,
+				"Invalid --set-click-lock-mode\n"
+				"Valid options: disabled|timeout\n");
+			return 1;
+		}
+		break;
+	case OPT_CLICK_LOCK_TIMEOUT: {
+		if (!optarg)
+			return 1;
+
+		unsigned int timeout;
+		if (!safe_atou(optarg, &timeout) || timeout > 10000) {
+			fprintf(stderr,
+				"Invalid --set-click-lock-timeout value\n"
+				"Valid range: 0 to 10000\n");
+			return 1;
+		}
+		options->click_lock_timeout = timeout;
+		break;
+	}
+	case OPT_CLICK_LOCK_BUTTONS: {
+		if (!optarg)
+			return 1;
+
+		if (streq(optarg, "none")) {
+			options->click_lock_nbuttons = 0;
+			break;
+		}
+
+		size_t nbuttons = 0;
+		_autostrvfree_ char **strv = strv_from_string(optarg, ",", &nbuttons);
+		if (!strv || nbuttons > ARRAY_LENGTH(options->click_lock_buttons)) {
+			fprintf(stderr,
+				"Invalid --set-click-lock-buttons value\n"
+				"Please provide a comma-separated list of buttons or none\n"
+				" e.g. --set-click-lock-buttons=BTN_LEFT,BTN_RIGHT\n");
+			return 1;
+		}
+		for (size_t i = 0; i < nbuttons; i++) {
+			int button = libevdev_event_code_from_name(EV_KEY, strv[i]);
+			if (button == -1) {
+				fprintf(stderr, "Invalid button %s\n", strv[i]);
+				return 1;
+			}
+			options->click_lock_buttons[i] = button;
+		}
+		options->click_lock_nbuttons = nbuttons;
+		break;
+	}
+	case OPT_CLICK_LOCK_THRESHOLD:
+		if (!optarg)
+			return 1;
+
+		if (!safe_atod(optarg, &options->click_lock_threshold) ||
+		    !(options->click_lock_threshold >= 0.0 &&
+		      options->click_lock_threshold <= 20.0)) {
+			fprintf(stderr,
+				"Invalid --set-click-lock-threshold value\n"
+				"Valid range: 0 to 20\n");
+			return 1;
+		}
 		break;
 	case OPT_SPEED:
 		if (!optarg)
@@ -720,6 +796,23 @@ tools_device_apply_config(struct libinput_device *device, struct tools_options *
 		libinput_device_config_scroll_set_button_lock(
 			device,
 			options->scroll_button_lock);
+
+	if (options->click_lock_timeout != -1)
+		libinput_device_config_click_lock_set_timeout(
+			device,
+			options->click_lock_timeout);
+	if (options->click_lock_nbuttons != -1)
+		libinput_device_config_click_lock_set_buttons(
+			device,
+			options->click_lock_buttons,
+			options->click_lock_nbuttons);
+	if (!isnan(options->click_lock_threshold))
+		libinput_device_config_click_lock_set_threshold(
+			device,
+			options->click_lock_threshold);
+	if (options->click_lock_mode != (enum libinput_config_click_lock_mode) - 1)
+		libinput_device_config_click_lock_set_mode(device,
+							   options->click_lock_mode);
 
 	if (libinput_device_config_accel_is_available(device)) {
 		libinput_device_config_accel_set_speed(device, options->speed);

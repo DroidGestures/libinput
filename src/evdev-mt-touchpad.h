@@ -728,6 +728,9 @@ void
 tp_release_all_taps(struct tp_dispatch *tp, usec_t now);
 
 void
+tp_tap_release_button(struct tp_dispatch *tp, usec_t time, evdev_usage_t button);
+
+void
 tp_tap_suspend(struct tp_dispatch *tp, usec_t time);
 
 void
@@ -798,6 +801,12 @@ tp_gesture_is_active(const struct tp_dispatch *tp);
 
 void
 tp_gesture_cancel(struct tp_dispatch *tp, usec_t time);
+
+void
+tp_gesture_release_3fg_drag(struct tp_dispatch *tp, usec_t time);
+
+void
+tp_gesture_handle_click_lock_motion(struct tp_dispatch *tp, usec_t time);
 
 void
 tp_gesture_cancel_motion_gestures(struct tp_dispatch *tp, usec_t time);
