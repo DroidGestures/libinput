@@ -3925,7 +3925,7 @@ START_TEST(touchpad_drag_config_enabledisable)
 	litest_assert_enum_eq(state, LIBINPUT_CONFIG_DRAG_ENABLED);
 
 	/* same thing with tapping disabled */
-	litest_enable_tap(dev->libinput_device);
+	litest_disable_tap(dev->libinput_device);
 
 	litest_disable_tap_drag(dev->libinput_device);
 	state = libinput_device_config_tap_get_drag_enabled(dev->libinput_device);
