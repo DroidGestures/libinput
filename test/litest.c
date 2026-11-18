@@ -1840,7 +1840,7 @@ litest_copy_file(const char *dest, const char *src, const char *header, bool is_
 	if (strstr(dest, "XXXXXX")) {
 		int suffixlen;
 
-		suffixlen = file->path + strlen(file->path) - rindex(file->path, '.');
+		suffixlen = file->path + strlen(file->path) - strrchr(file->path, '.');
 		out = mkstemps(file->path, suffixlen);
 	} else {
 		out = open(file->path, O_CREAT | O_WRONLY, 0644);

@@ -526,7 +526,7 @@ parse_evdev_abs_prop(const char *prop, struct input_absinfo *abs)
 	while (current && *current != '\0' && bit <= ABS_MASK_FLAT) {
 		if (*current != ':') {
 			int v;
-			next = index(current, ':');
+			next = strchr(current, ':');
 			if (next)
 				*next = '\0';
 
