@@ -1718,7 +1718,7 @@ quirk_match_section(struct quirks_context *ctx,
 struct quirks *
 quirks_fetch_for_device(struct quirks_context *ctx, struct udev_device *udev_device)
 {
-	if (!ctx)
+	if (!ctx || !udev_device)
 		return NULL;
 
 	qlog_debug(ctx, "%s: fetching quirks\n", udev_device_get_devnode(udev_device));

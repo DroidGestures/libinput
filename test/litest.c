@@ -669,14 +669,11 @@ grab_device(struct litest_device *device, bool mode)
 {
 	struct libinput *li = libinput_device_get_context(device->libinput_device);
 	struct litest_context *ctx = libinput_get_user_data(li);
-	_unref_(udev_device) * udev_device;
 	const char *devnode;
 	struct path *p;
 
-	udev_device = libinput_device_get_udev_device(device->libinput_device);
-	litest_assert_ptr_notnull(udev_device);
-
-	devnode = udev_device_get_devnode(udev_device);
+	devnode = libevdev_uinput_get_devnode(device->uinput);
+	litest_assert_ptr_notnull(devnode);
 
 	/* Note: in some tests we create multiple devices for the same path.
 	 * This will only grab the first device in the list but we're using
@@ -1840,7 +1837,7 @@ litest_copy_file(const char *dest, const char *src, const char *header, bool is_
 	if (strstr(dest, "XXXXXX")) {
 		int suffixlen;
 
-		suffixlen = file->path + strlen(file->path) - rindex(file->path, '.');
+		suffixlen = file->path + strlen(file->path) - strrchr(file->path, '.');
 		out = mkstemps(file->path, suffixlen);
 	} else {
 		out = open(file->path, O_CREAT | O_WRONLY, 0644);

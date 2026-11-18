@@ -383,7 +383,7 @@ trunkname(const char *filename)
 	if (base == NULL)
 		return safe_strdup("");
 
-	suffix = rindex(base, '.');
+	suffix = strrchr(base, '.');
 	if (suffix == NULL)
 		return safe_strdup(base);
 	else

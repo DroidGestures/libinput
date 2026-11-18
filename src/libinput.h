@@ -3712,6 +3712,10 @@ libinput_path_create_context(const struct libinput_interface *interface,
  * added to the internal list and re-opened on libinput_resume(). The device
  * can be removed with libinput_path_remove_device().
  *
+ * The path backend does not create a udev device. Device types are inferred
+ * from evdev capabilities; udev properties and udev-matched quirks are
+ * unavailable for devices added this way.
+ *
  * If the device was successfully initialized, it is returned in the device
  * argument. The lifetime of the returned device pointer is limited until
  * the next libinput_dispatch(), use libinput_device_ref() to keep a permanent

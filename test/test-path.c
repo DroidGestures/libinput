@@ -415,6 +415,7 @@ START_TEST(path_add_device)
 
 	device = libinput_path_add_device(li, libevdev_uinput_get_devnode(dev->uinput));
 	litest_assert_notnull(device);
+	litest_assert_ptr_null(libinput_device_get_udev_device(device));
 
 	litest_dispatch(li);
 

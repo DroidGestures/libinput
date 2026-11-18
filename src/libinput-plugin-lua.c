@@ -173,21 +173,24 @@ lua_push_evdev_device(lua_State *L,
 	lua_device->frame_refid = LUA_NOREF;
 	list_init(&lua_device->udev_properties_list);
 
-	struct udev_list_entry *e = udev_device_get_properties_list_entry(udev_device);
-	while (e) {
-		const char *key = udev_list_entry_get_name(e);
-		if (strstartswith(key, "ID_INPUT_") &&
-		    !streq(key, "ID_INPUT_WIDTH_MM") &&
-		    !streq(key, "ID_INPUT_HEIGHT_MM")) {
-			const char *value = udev_list_entry_get_value(e);
-			if (!streq(value, "0")) {
-				struct udev_property *prop =
-					udev_property_new(key, value);
-				list_insert(&lua_device->udev_properties_list,
-					    &prop->link);
+	if (udev_device) {
+		struct udev_list_entry *e =
+			udev_device_get_properties_list_entry(udev_device);
+		while (e) {
+			const char *key = udev_list_entry_get_name(e);
+			if (strstartswith(key, "ID_INPUT_") &&
+			    !streq(key, "ID_INPUT_WIDTH_MM") &&
+			    !streq(key, "ID_INPUT_HEIGHT_MM")) {
+				const char *value = udev_list_entry_get_value(e);
+				if (!streq(value, "0")) {
+					struct udev_property *prop =
+						udev_property_new(key, value);
+					list_insert(&lua_device->udev_properties_list,
+						    &prop->link);
+				}
 			}
+			e = udev_list_entry_get_next(e);
 		}
-		e = udev_list_entry_get_next(e);
 	}
 
 	list_insert(&plugin->evdev_devices, &lua_device->link);

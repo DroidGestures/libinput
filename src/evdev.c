@@ -98,6 +98,12 @@ static const unsigned int well_known_keyboard_keys[] = {
 	KEY_CALC,     KEY_FILE,     KEY_MAIL,    KEY_PLAYPAUSE, KEY_BRIGHTNESSDOWN,
 };
 
+static inline const char *
+evdev_udev_get_property(struct udev_device *udev_device, const char *property)
+{
+	return udev_device ? udev_device_get_property_value(udev_device, property) : NULL;
+}
+
 static inline bool
 parse_udev_flag(struct evdev_device *device,
 		struct udev_device *udev_device,
@@ -106,7 +112,7 @@ parse_udev_flag(struct evdev_device *device,
 	const char *val;
 	bool b;
 
-	val = udev_device_get_property_value(udev_device, property);
+	val = evdev_udev_get_property(udev_device, property);
 	if (!val)
 		return false;
 
@@ -507,7 +513,7 @@ evdev_tag_trackpoint(struct evdev_device *device, struct udev_device *udev_devic
 
 	device->tags |= EVDEV_TAG_TRACKPOINT;
 
-	udev_prop = udev_device_get_property_value(udev_device, "ID_INTEGRATION");
+	udev_prop = evdev_udev_get_property(udev_device, "ID_INTEGRATION");
 	if (udev_prop) {
 		if (streq(udev_prop, "internal")) {
 			/* noop, this is the default anyway */
@@ -561,7 +567,7 @@ evdev_tag_keyboard(struct evdev_device *device, struct udev_device *udev_device)
 			return;
 	}
 
-	udev_prop = udev_device_get_property_value(udev_device, "ID_INTEGRATION");
+	udev_prop = evdev_udev_get_property(udev_device, "ID_INTEGRATION");
 	if (udev_prop) {
 		if (streq(udev_prop, "internal"))
 			evdev_tag_keyboard_internal(device);
@@ -1324,7 +1330,7 @@ evdev_read_wheel_click_prop(struct evdev_device *device,
 	int val;
 
 	*angle = DEFAULT_WHEEL_CLICK_ANGLE;
-	prop = udev_device_get_property_value(device->udev_device, prop);
+	prop = evdev_udev_get_property(device->udev_device, prop);
 	if (!prop)
 		return false;
 
@@ -1349,7 +1355,7 @@ evdev_read_wheel_click_count_prop(struct evdev_device *device,
 {
 	int val;
 
-	prop = udev_device_get_property_value(device->udev_device, prop);
+	prop = evdev_udev_get_property(device->udev_device, prop);
 	if (!prop)
 		return false;
 
@@ -1446,7 +1452,7 @@ evdev_read_dpi_prop(struct evdev_device *device)
 	if (device->tags & EVDEV_TAG_TRACKPOINT)
 		return DEFAULT_MOUSE_DPI;
 
-	mouse_dpi = udev_device_get_property_value(device->udev_device, "MOUSE_DPI");
+	mouse_dpi = evdev_udev_get_property(device->udev_device, "MOUSE_DPI");
 	if (mouse_dpi) {
 		dpi = parse_mouse_dpi_property(mouse_dpi);
 		if (!dpi) {
@@ -1618,10 +1624,79 @@ evdev_fix_abs_resolution(struct evdev_device *device,
 }
 
 static enum evdev_device_udev_tags
+evdev_device_get_capability_tags(struct libevdev *evdev)
+{
+	enum evdev_device_udev_tags tags = EVDEV_UDEV_TAG_INPUT;
+	bool has_abs_xy = libevdev_has_event_code(evdev, EV_ABS, ABS_X) &&
+			  libevdev_has_event_code(evdev, EV_ABS, ABS_Y);
+	bool has_abs_mt_xy =
+		libevdev_has_event_code(evdev, EV_ABS, ABS_MT_POSITION_X) &&
+		libevdev_has_event_code(evdev, EV_ABS, ABS_MT_POSITION_Y);
+	bool has_finger_tool =
+		libevdev_has_event_code(evdev, EV_KEY, BTN_TOOL_FINGER);
+	bool has_joystick_button = false;
+	bool has_keyboard_row = true;
+
+	for (unsigned int key = KEY_Q; key <= KEY_P; key++) {
+		if (!libevdev_has_event_code(evdev, EV_KEY, key)) {
+			has_keyboard_row = false;
+			break;
+		}
+	}
+	for (unsigned int button = BTN_JOYSTICK; button < BTN_DIGI; button++) {
+		if (libevdev_has_event_code(evdev, EV_KEY, button)) {
+			has_joystick_button = true;
+			break;
+		}
+	}
+
+	if (has_keyboard_row)
+		tags |= EVDEV_UDEV_TAG_KEYBOARD;
+
+	if (libevdev_has_event_code(evdev, EV_REL, REL_X) &&
+	    libevdev_has_event_code(evdev, EV_REL, REL_Y))
+		tags |= EVDEV_UDEV_TAG_MOUSE;
+
+	if (libevdev_has_property(evdev, INPUT_PROP_DIRECT)) {
+		if (libevdev_has_event_code(evdev, EV_KEY, BTN_TOOL_PEN))
+			tags |= EVDEV_UDEV_TAG_TABLET;
+		else
+			tags |= EVDEV_UDEV_TAG_TOUCHSCREEN;
+	} else if ((has_abs_mt_xy || (has_abs_xy && has_finger_tool)) &&
+		   (libevdev_has_property(evdev, INPUT_PROP_POINTER) ||
+		    has_finger_tool)) {
+		tags |= EVDEV_UDEV_TAG_TOUCHPAD;
+	}
+
+	if (libevdev_has_event_code(evdev, EV_KEY, BTN_TOOL_PEN) ||
+	    libevdev_has_event_code(evdev, EV_KEY, BTN_TOOL_RUBBER))
+		tags |= EVDEV_UDEV_TAG_TABLET;
+	else if (!has_abs_xy && !has_abs_mt_xy &&
+		 libevdev_has_event_code(evdev, EV_KEY, BTN_0))
+		tags |= EVDEV_UDEV_TAG_TABLET_PAD;
+
+	if (has_joystick_button ||
+	    libevdev_has_event_code(evdev, EV_KEY, BTN_GAMEPAD))
+		tags |= EVDEV_UDEV_TAG_JOYSTICK;
+
+	if (libevdev_has_event_type(evdev, EV_SW) &&
+	    (libevdev_has_event_code(evdev, EV_SW, SW_LID) ||
+	     libevdev_has_event_code(evdev, EV_SW, SW_TABLET_MODE) ||
+	     libevdev_has_event_code(evdev, EV_SW, SW_KEYPAD_SLIDE) ||
+	     libevdev_has_event_code(evdev, EV_SW, SW_CAMERA_LENS_COVER)))
+		tags |= EVDEV_UDEV_TAG_SWITCH;
+
+	return tags;
+}
+
+static enum evdev_device_udev_tags
 evdev_device_get_udev_tags(struct evdev_device *device, struct udev_device *udev_device)
 {
 	enum evdev_device_udev_tags tags = EVDEV_UDEV_TAG_NONE;
 	int i;
+
+	if (!udev_device)
+		return evdev_device_get_capability_tags(device->evdev);
 
 	for (i = 0; i < 2 && udev_device; i++) {
 		unsigned j;
@@ -2114,7 +2189,9 @@ evdev_notify_added_device(struct evdev_device *device)
 }
 
 static bool
-evdev_device_have_same_syspath(struct udev_device *udev_device, int fd)
+evdev_device_have_same_syspath(struct udev_device *udev_device,
+			       int fd,
+			       dev_t devnum)
 {
 	struct stat st;
 
@@ -2132,8 +2209,12 @@ evdev_device_have_same_syspath(struct udev_device *udev_device, int fd)
 	 * the kern.evdev.input.N.devnum sysctl, which is readable even in a
 	 * jail whose devfs does not expose the input node.
 	 */
-	return udev_device_get_devnum(udev_device) == st.st_rdev;
+	return udev_device ? udev_device_get_devnum(udev_device) == st.st_rdev :
+			     devnum == st.st_rdev;
 #else
+	if (!udev_device)
+		return devnum == st.st_rdev;
+
 	struct udev *udev = udev_device_get_udev(udev_device);
 	_unref_(udev_device) *udev_device_new =
 		udev_device_new_from_devnum(udev, 'c', st.st_rdev);
@@ -2153,8 +2234,7 @@ evdev_set_device_group(struct evdev_device *device, struct udev_device *udev_dev
 	struct libinput_device_group *group = NULL;
 	const char *udev_group;
 
-	udev_group =
-		udev_device_get_property_value(udev_device, "LIBINPUT_DEVICE_GROUP");
+	udev_group = evdev_udev_get_property(udev_device, "LIBINPUT_DEVICE_GROUP");
 	if (udev_group)
 		group = libinput_device_group_find_group(libinput, udev_group);
 
@@ -2260,7 +2340,8 @@ evdev_pre_configure_model_quirks(struct evdev_device *device)
 	}
 
 	if (!quirks_get_bool(q, QUIRK_ATTR_IS_VIRTUAL, &is_virtual)) {
-		is_virtual = !getenv("LIBINPUT_RUNNING_TEST_SUITE") &&
+		is_virtual = device->udev_device &&
+			     !getenv("LIBINPUT_RUNNING_TEST_SUITE") &&
 			     udev_device_is_virtual(device->udev_device);
 	}
 	if (is_virtual)
@@ -2307,21 +2388,24 @@ udev_device_should_be_ignored(struct udev_device *udev_device)
 {
 	const char *value;
 
-	value = udev_device_get_property_value(udev_device, "LIBINPUT_IGNORE_DEVICE");
+	value = evdev_udev_get_property(udev_device, "LIBINPUT_IGNORE_DEVICE");
 
 	return value && !streq(value, "0");
 }
 
-struct evdev_device *
-evdev_device_create(struct libinput_seat *seat, struct udev_device *udev_device)
+static struct evdev_device *
+evdev_device_create_internal(struct libinput_seat *seat,
+			     struct udev_device *udev_device,
+			     const char *devnode,
+			     const char *device_sysname,
+			     dev_t devnum)
 {
 	struct libinput *libinput = seat->libinput;
 	struct evdev_device *device = NULL;
 	int rc;
 	int fd = -1;
 	int unhandled_device = 0;
-	const char *devnode = udev_device_get_devnode(udev_device);
-	_autofree_ char *sysname = str_sanitize(udev_device_get_sysname(udev_device));
+	_autofree_ char *sysname = str_sanitize(device_sysname ? device_sysname : "unknown");
 
 	if (!devnode) {
 		log_info(libinput, "%s: no device node associated\n", sysname);
@@ -2346,11 +2430,21 @@ evdev_device_create(struct libinput_seat *seat, struct udev_device *udev_device)
 		goto err;
 	}
 
-	if (!evdev_device_have_same_syspath(udev_device, fd))
-		goto err;
+	if (udev_device) {
+		if (!evdev_device_have_same_syspath(udev_device, fd, devnum))
+			goto err;
+	} else {
+		struct stat st;
+
+		if (fstat(fd, &st) < 0 || !S_ISCHR(st.st_mode))
+			goto err;
+		devnum = st.st_rdev;
+	}
 
 	device = zalloc(sizeof *device);
 	device->sysname = steal(&sysname);
+	device->devnode = safe_strdup(devnode);
+	device->devnum = devnum;
 
 	libinput_device_init(&device->base, seat);
 	libinput_seat_ref(seat);
@@ -2368,7 +2462,7 @@ evdev_device_create(struct libinput_seat *seat, struct udev_device *udev_device)
 					 libinput);
 	device->seat_caps = EVDEV_DEVICE_NO_CAPABILITIES;
 	device->is_mt = 0;
-	device->udev_device = udev_device_ref(udev_device);
+	device->udev_device = udev_device ? udev_device_ref(udev_device) : NULL;
 	device->dispatch = NULL;
 	device->fd = fd;
 	device->devname = libevdev_get_name(device->evdev);
@@ -2404,7 +2498,7 @@ evdev_device_create(struct libinput_seat *seat, struct udev_device *udev_device)
 	}
 
 	evdev_log_info(device,
-		       "is tagged by udev as:%s%s%s%s%s%s%s%s%s%s%s\n",
+		       "classified as:%s%s%s%s%s%s%s%s%s%s%s\n",
 		       udev_tags & EVDEV_UDEV_TAG_KEYBOARD ? " Keyboard" : "",
 		       udev_tags & EVDEV_UDEV_TAG_MOUSE ? " Mouse" : "",
 		       udev_tags & EVDEV_UDEV_TAG_TOUCHPAD ? " Touchpad" : "",
@@ -2459,6 +2553,31 @@ err:
 	return unhandled_device ? EVDEV_UNHANDLED_DEVICE : NULL;
 }
 
+struct evdev_device *
+evdev_device_create(struct libinput_seat *seat, struct udev_device *udev_device)
+{
+	if (!udev_device)
+		return NULL;
+
+	return evdev_device_create_internal(seat,
+					   udev_device,
+					   udev_device_get_devnode(udev_device),
+					   udev_device_get_sysname(udev_device),
+					   udev_device_get_devnum(udev_device));
+}
+
+struct evdev_device *
+evdev_device_create_from_path(struct libinput_seat *seat, const char *path)
+{
+	const char *sysname = strrchr(path, '/');
+
+	return evdev_device_create_internal(seat,
+					   NULL,
+					   path,
+					   sysname ? sysname + 1 : path,
+					   0);
+}
+
 const char *
 evdev_device_get_output(struct evdev_device *device)
 {
@@ -2498,7 +2617,7 @@ evdev_device_get_id_vendor(struct evdev_device *device)
 struct udev_device *
 evdev_device_get_udev_device(struct evdev_device *device)
 {
-	return udev_device_ref(device->udev_device);
+	return device->udev_device ? udev_device_ref(device->udev_device) : NULL;
 }
 
 void
@@ -2576,8 +2695,8 @@ evdev_read_calibration_prop(struct evdev_device *device)
 	const char *prop;
 	float calibration[6];
 
-	prop = udev_device_get_property_value(device->udev_device,
-					      "LIBINPUT_CALIBRATION_MATRIX");
+	prop = evdev_udev_get_property(device->udev_device,
+				       "LIBINPUT_CALIBRATION_MATRIX");
 
 	if (prop == NULL)
 		return;
@@ -2612,7 +2731,7 @@ evdev_read_fuzz_prop(struct evdev_device *device, unsigned int code)
 	if (rc == -1)
 		return 0;
 
-	prop = udev_device_get_property_value(device->udev_device, name);
+	prop = evdev_udev_get_property(device->udev_device, name);
 	if (prop && (safe_atoi(prop, &fuzz) == false || fuzz < 0)) {
 		evdev_log_bug_libinput(device,
 				       "invalid LIBINPUT_FUZZ property value: %s\n",
@@ -2958,7 +3077,7 @@ evdev_device_resume(struct evdev_device *device)
 	if (device->was_removed)
 		return -ENODEV;
 
-	devnode = udev_device_get_devnode(device->udev_device);
+	devnode = device->devnode;
 	if (!devnode)
 		return -ENODEV;
 
@@ -2967,7 +3086,9 @@ evdev_device_resume(struct evdev_device *device)
 	if (fd < 0)
 		return -errno;
 
-	if (!evdev_device_have_same_syspath(device->udev_device, fd)) {
+	if (!evdev_device_have_same_syspath(device->udev_device,
+					    fd,
+					    device->devnum)) {
 		close_restricted(libinput, fd);
 		return -ENODEV;
 	}
@@ -3045,12 +3166,14 @@ evdev_device_destroy(struct evdev_device *device)
 
 	free(device->log_prefix_name);
 	free(device->sysname);
+	free(device->devnode);
 	free(device->output_name);
 	filter_destroy(device->pointer.filter);
 	libinput_timer_destroy(&device->scroll.timer);
 	libinput_timer_destroy(&device->middlebutton.timer);
 	libinput_seat_unref(device->base.seat);
 	libevdev_free(device->evdev);
-	udev_device_unref(device->udev_device);
+	if (device->udev_device)
+		udev_device_unref(device->udev_device);
 	free(device);
 }

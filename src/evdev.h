@@ -174,6 +174,8 @@ struct evdev_device {
 	struct evdev_dispatch *dispatch;
 	struct libevdev *evdev;
 	struct udev_device *udev_device;
+	char *devnode;
+	dev_t devnum;
 	char *output_name;
 	const char *devname;
 	char *log_prefix_name;
@@ -387,6 +389,8 @@ evdev_verify_dispatch_type(struct evdev_dispatch *dispatch,
 
 struct evdev_device *
 evdev_device_create(struct libinput_seat *seat, struct udev_device *device);
+struct evdev_device *
+evdev_device_create_from_path(struct libinput_seat *seat, const char *path);
 
 static inline struct libinput *
 evdev_libinput_context(const struct evdev_device *device)
