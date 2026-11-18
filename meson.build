@@ -163,8 +163,18 @@ endif
 
 # Dependencies
 pkgconfig = import('pkgconfig')
-dep_udev = dependency('libudev')
-dep_libevdev = dependency('libevdev', version: '>= 1.10.0')
+sub_udev = subproject('libudev-zero', default_options: [
+	'default_library=static',
+	'usb-ids-path=/dev/null',
+])
+sub_libevdev = subproject('libevdev', default_options: [
+	'default_library=static',
+	'tests=disabled',
+	'tools=disabled',
+	'documentation=disabled',
+])
+dep_udev = sub_udev.get_variable('dep_libudev')
+dep_libevdev = sub_libevdev.get_variable('dep_libevdev')
 
 dep_lm = cc.find_library('m', required : false)
 dep_rt = cc.find_library('rt', required : false)

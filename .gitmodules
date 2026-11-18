@@ -1,0 +1,6 @@
+[submodule "subprojects/libevdev"]
+	path = subprojects/libevdev
+	url = https://github.com/supechicken/libevdev
+[submodule "subprojects/libudev-zero"]
+	path = subprojects/libudev-zero
+	url = https://github.com/supechicken/libudev-zero
