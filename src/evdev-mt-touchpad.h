@@ -316,6 +316,25 @@ enum suspend_trigger {
 	SUSPEND_TABLET_MODE = 0x8,
 };
 
+enum haptic_effect {
+	HAPTIC_NONE,
+	HAPTIC_CLICK,
+	HAPTIC_DEEP_CLICK,
+	HAPTIC_RELEASE,
+	HAPTIC_DEEP_RELEASE,
+};
+
+struct haptic_thresholds {
+	struct {
+		int trigger;
+		int release;
+	} click;
+	struct {
+		int trigger;
+		int release;
+	} deep_click;
+};
+
 struct tp_dispatch {
 	struct evdev_dispatch base;
 	struct evdev_device *device;
@@ -324,6 +343,21 @@ struct tp_dispatch {
 	unsigned int slot;              /* current slot */
 	bool has_mt;
 	bool semi_mt;
+	bool is_haptic_touchpad;
+	struct {
+		bool hostmode_enabled; /* If trackpad clicks are userspace controlled */
+		enum haptic_effect pending_effect;
+		struct {
+			struct ff_effect click;
+			struct ff_effect release;
+			struct ff_effect deep_click;
+			struct ff_effect deep_release;
+		} effect;
+		enum haptic_effect current_click_level;
+		struct libinput_device_config_haptics config_functions;
+		struct libinput_config_haptics settings;
+		unsigned int nfingers_used;
+	} haptic;
 
 	uint32_t suspend_reason;
 
@@ -352,7 +386,7 @@ struct tp_dispatch {
 	/* if pressure goes above high -> touch down,
 	   if pressure then goes below low -> touch up */
 	struct {
-		bool use_pressure;
+		bool as_contact_area;
 		int high;
 		int low;
 	} pressure;
@@ -515,7 +549,7 @@ struct tp_dispatch {
 
 		bool use_mt_tool;
 
-		bool use_pressure;
+		bool pressure_as_contact_area;
 		int pressure_threshold;
 
 		bool use_size;
@@ -553,7 +587,7 @@ struct tp_dispatch {
 		int upper_thumb_line;
 		int lower_thumb_line;
 
-		bool use_pressure;
+		bool pressure_as_contact_area;
 		int pressure_threshold;
 
 		bool use_size;
